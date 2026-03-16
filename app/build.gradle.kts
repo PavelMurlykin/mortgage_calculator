@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -53,7 +54,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    annotationProcessor(libs.androidx.room.compiler) // Note: KSP is preferred for Room, but using annotationProcessor for simplicity in setup
+    ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
 
     testImplementation(libs.junit)

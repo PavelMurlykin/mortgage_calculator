@@ -3,12 +3,14 @@ package com.example.mortgagecalculator.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.mortgagecalculator.ui.MortgageViewModel
@@ -18,6 +20,8 @@ import com.example.mortgagecalculator.ui.MortgageViewModel
 fun SettingsScreen(viewModel: MortgageViewModel) {
     val stepChange by viewModel.stepChange.collectAsState()
     val defaultIsAnnuity by viewModel.defaultIsAnnuity.collectAsState()
+    
+    var stepText by remember(stepChange) { mutableStateOf(String.format("%.0f", stepChange)) }
 
     Column(
         modifier = Modifier
@@ -36,26 +40,29 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Шаг изменения", fontSize = 16.sp)
-                    Text(
-                        text = String.format("%,.0f", stepChange),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                }
-                
-                Slider(
-                    value = stepChange.toFloat(),
-                    onValueChange = { viewModel.updateStepChange(it.toDouble()) },
-                    valueRange = 1000f..1000000f,
-                    steps = 0
+                Text(
+                    text = "Шаг изменения",
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
+                
+                OutlinedTextField(
+                    value = stepText,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
+                            stepText = newValue
+                            newValue.toDoubleOrNull()?.let {
+                                viewModel.updateStepChange(it)
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    suffix = { Text("₽") },
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
                     text = "Шаг изменения стоимости объекта и первоначального взноса",
