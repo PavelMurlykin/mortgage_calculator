@@ -6,8 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Settings : Screen("settings", "Настройки", Icons.Default.Settings)
     object Calculation : Screen("calculation", "Расчет", Icons.Default.Calculate)
-    object Saved : Screen("saved", "Список", Icons.Default.List)
+    object Saved : Screen("saved", "Список", Icons.AutoMirrored.Filled.List)
 }
 
 @Composable

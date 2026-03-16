@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -49,7 +51,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 fontWeight = FontWeight.Bold
             )
             IconButton(onClick = { /* Share action */ }) {
-                Icon(androidx.compose.material.icons.Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
         }
 
