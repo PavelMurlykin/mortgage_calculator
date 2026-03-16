@@ -5,12 +5,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -42,16 +41,17 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = { viewModel.saveCalculation() }) {
-                Text("Сохранить", color = MaterialTheme.colorScheme.primary)
-            }
             Text(
-                text = "Расчет кредита",
-                fontSize = 24.sp,
+                text = "Расчет",
+                fontSize = 32.sp,
                 fontWeight = FontWeight.Bold
             )
-            IconButton(onClick = { /* Share action */ }) {
-                Icon(Icons.Default.Share, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            IconButton(onClick = { viewModel.saveCalculation() }) {
+                Icon(
+                    Icons.Default.Save,
+                    contentDescription = "Сохранить",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
 
@@ -76,7 +76,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text("Ежемесячный платеж", fontSize = 12.sp, color = Color.Gray)
+                        Text("Ежемесячный платеж", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     TextButton(onClick = {
                         navController.navigate("schedule/${loanAmount}/${interestRate}/${termYears}/${isAnnuity}")
@@ -94,7 +94,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Тип платежа", fontSize = 14.sp, color = Color.Gray)
+                    Text("Тип платежа", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(if (isAnnuity) "Аннуитетный" else "Дифференцированный", fontSize = 14.sp, fontWeight = FontWeight.Medium)
                 }
             }
@@ -142,7 +142,7 @@ fun ResultRow(label: String, value: String) {
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = 14.sp, color = Color.Gray)
+        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
@@ -175,12 +175,16 @@ fun InputCard(
                             textValue = it
                             it.toDoubleOrNull()?.let { d -> onValueChange(d) }
                         },
-                        textStyle = LocalTextStyle.current.copy(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 24.sp, 
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, fontSize = 12.sp, color = Color.Gray)
+                        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (percentage != null) {
                             Text(String.format(", %.1f %%", percentage), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         }
@@ -189,10 +193,10 @@ fun InputCard(
                 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { onValueChange((value - step).let { if (range != null) it.coerceIn(range) else it.coerceAtLeast(0.0) }) }) {
-                        Text("-", fontSize = 24.sp, color = Color.Gray)
+                        Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { onValueChange((value + step).let { if (range != null) it.coerceIn(range) else it }) }) {
-                        Text("+", fontSize = 24.sp, color = Color.Gray)
+                        Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

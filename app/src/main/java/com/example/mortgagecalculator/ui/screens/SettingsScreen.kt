@@ -23,6 +23,12 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
     
     var stepText by remember(stepChange) { mutableStateOf(String.format("%.0f", stepChange)) }
 
+    val description = if (defaultIsAnnuity) {
+        "Платеж остаётся неизменным до конца срока кредитования. И сумма на погашение тела кредита, и процентная часть всегда разные"
+    } else {
+        "Сумма платежа уменьшается к концу срока. Тело кредита гасится равными долями, а проценты начисляются на остаток долга"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -101,7 +107,7 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
         }
         
         Text(
-            text = "Платеж остаётся неизменным до конца срока кредитования. И сумма на погашение тела кредита, и процентная часть всегда разные",
+            text = description,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp)
