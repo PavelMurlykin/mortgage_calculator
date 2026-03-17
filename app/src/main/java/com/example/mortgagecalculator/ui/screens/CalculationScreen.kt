@@ -156,7 +156,8 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             onValueChange = { viewModel.updatePropertyValue(it) },
             step = stepChange,
             isMoney = true,
-            suffix = " руб."
+            suffix = " руб.",
+            range = 1.0..1000000000.0 // Reasonable max
         )
 
         Card(
@@ -173,7 +174,8 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         onValueChange = { viewModel.updateDownPayment(it) },
                         modifier = Modifier.weight(1f),
                         isMoney = true,
-                        suffix = " руб."
+                        suffix = " руб.",
+                        range = 0.0..propertyValue
                     )
                     if (!isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
@@ -194,7 +196,8 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         value = percent,
                         onValueChange = { viewModel.updateDownPaymentPercent(it) },
                         modifier = Modifier.weight(1f),
-                        suffix = " %"
+                        suffix = " %",
+                        range = 0.0..100.0
                     )
                     if (isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
@@ -211,9 +214,9 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
         InputCard(
             label = "Срок",
             value = termYears.toDouble(),
-            onValueChange = { viewModel.termYears.value = it.toInt().coerceIn(1, 30) },
+            onValueChange = { viewModel.updateTermYears(it.toInt()) },
             step = 1.0,
-            range = 1.0..30.0,
+            range = 0.0..30.0,
             isInteger = true,
             suffix = " " + getYearString(termYears)
         )
@@ -221,10 +224,11 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
         InputCard(
             label = "Процентная ставка",
             value = interestRate,
-            onValueChange = { viewModel.interestRate.value = it },
+            onValueChange = { viewModel.updateInterestRate(it) },
             step = stepRate,
             suffix = " %",
-            allowEmpty = true
+            allowEmpty = true,
+            range = 0.0..100.0
         )
     }
 }
@@ -266,7 +270,8 @@ fun InputCard(
                     isMoney = isMoney,
                     isInteger = isInteger,
                     suffix = suffix,
-                    allowEmpty = allowEmpty
+                    allowEmpty = allowEmpty,
+                    range = range
                 )
                 Row {
                     IconButton(onClick = { 
@@ -296,7 +301,8 @@ fun NumericField(
     isInteger: Boolean = false,
     suffix: String = "",
     color: Color = MaterialTheme.colorScheme.onSurface,
-    allowEmpty: Boolean = false
+    allowEmpty: Boolean = false,
+    range: ClosedFloatingPointRange<Double>? = null
 ) {
     val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
     val formatter = if (isMoney) DecimalFormat("#,###", symbols) else if (isInteger) DecimalFormat("#", symbols) else DecimalFormat("0.##", symbols)
@@ -314,8 +320,12 @@ fun NumericField(
                 textFieldValue = newValue.copy(text = "")
                 if (allowEmpty) onValueChange(0.0)
             } else if (cleanInput.toDoubleOrNull() != null) {
+                val inputVal = cleanInput.toDouble()
+                // Apply range restriction on manual input
+                val restrictedVal = if (range != null) inputVal.coerceIn(range) else inputVal
+                
                 textFieldValue = newValue
-                onValueChange(cleanInput.toDouble())
+                onValueChange(restrictedVal)
             }
         },
         singleLine = true,

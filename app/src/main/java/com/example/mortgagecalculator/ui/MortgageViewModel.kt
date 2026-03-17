@@ -25,7 +25,7 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     val stepPercent = settingsManager.stepPercent.stateIn(viewModelScope, SharingStarted.Eagerly, 0.1)
     val stepRate = settingsManager.stepRate.stateIn(viewModelScope, SharingStarted.Eagerly, 0.1)
 
-    // Calculation Inputs (Initialized with defaults, updated from DataStore in init)
+    // Calculation Inputs
     val propertyValue = MutableStateFlow(6600000.0)
     val downPayment = MutableStateFlow(1320000.0)
     val termYears = MutableStateFlow(30)
@@ -35,15 +35,13 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
 
     init {
         viewModelScope.launch {
-            // Restore state
-            settingsManager.propertyValue.first().let { propertyValue.value = it }
-            settingsManager.downPayment.first().let { downPayment.value = it }
-            settingsManager.termYears.first().let { termYears.value = it }
-            settingsManager.interestRate.first().let { interestRate.value = it }
+            settingsManager.propertyValue.first().let { propertyValue.value = it.coerceAtLeast(1.0) }
+            settingsManager.downPayment.first().let { downPayment.value = it.coerceIn(0.0, propertyValue.value) }
+            settingsManager.termYears.first().let { termYears.value = it.coerceIn(0, 30) }
+            settingsManager.interestRate.first().let { interestRate.value = it.coerceIn(0.0, 100.0) }
             settingsManager.isAnnuity.first().let { isAnnuity.value = it }
             settingsManager.isDownPaymentPercentLocked.first().let { isDownPaymentPercentLocked.value = it }
             
-            // Auto-save changes using combine with array handling for 6+ flows
             combine(
                 propertyValue, 
                 downPayment, 
@@ -98,24 +96,41 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
-    // Actions
+    // Actions with Ranges
     fun updatePropertyValue(value: Double) {
+        val validatedValue = value.coerceAtLeast(1.0)
         val oldProp = propertyValue.value
-        propertyValue.value = value
+        propertyValue.value = validatedValue
+        
+        // If percent was locked, update downPayment amount based on new property value
         if (isDownPaymentPercentLocked.value) {
             val percent = if (oldProp > 0) downPayment.value / oldProp else 0.0
-            downPayment.value = value * percent
+            downPayment.value = (validatedValue * percent).coerceIn(0.0, validatedValue)
+        } else {
+            // Ensure downPayment doesn't exceed new property value
+            if (downPayment.value > validatedValue) {
+                downPayment.value = validatedValue
+            }
         }
     }
 
     fun updateDownPayment(value: Double) {
-        downPayment.value = value
+        downPayment.value = value.coerceIn(0.0, propertyValue.value)
         isDownPaymentPercentLocked.value = false
     }
 
     fun updateDownPaymentPercent(percent: Double) {
-        downPayment.value = propertyValue.value * (percent / 100)
+        val validatedPercent = percent.coerceIn(0.0, 100.0)
+        downPayment.value = propertyValue.value * (validatedPercent / 100.0)
         isDownPaymentPercentLocked.value = true
+    }
+
+    fun updateTermYears(years: Int) {
+        termYears.value = years.coerceIn(0, 30)
+    }
+
+    fun updateInterestRate(rate: Double) {
+        interestRate.value = rate.coerceIn(0.0, 100.0)
     }
 
     fun saveCalculation() {
