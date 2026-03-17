@@ -31,7 +31,7 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
 
-fun getYearString(years: Int): String {
+fun formatYearsLabel(years: Int): String {
     val mod10 = years % 10
     val mod100 = years % 100
     return when {
@@ -41,17 +41,17 @@ fun getYearString(years: Int): String {
     }
 }
 
-class SuffixTransformation(val suffix: String) : VisualTransformation {
+class SuffixTransformation(private val suffix: String) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val result = text + AnnotatedString(suffix)
-        val mapping = object : OffsetMapping {
+        val transformedText = text + AnnotatedString(suffix)
+        val offsetMapping = object : OffsetMapping {
             override fun originalToTransformed(offset: Int): Int = offset
             override fun transformedToOriginal(offset: Int): Int {
                 if (offset > text.length) return text.length
                 return offset
             }
         }
-        return TransformedText(result, mapping)
+        return TransformedText(transformedText, offsetMapping)
     }
 }
 
@@ -70,17 +70,17 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 
     val calculatedMonthlyPayment by viewModel.calculatedMonthlyPayment.collectAsState()
     val calculatedPropertyValue by viewModel.calculatedPropertyValue.collectAsState()
-    val loanAmount by viewModel.loanAmount.collectAsState()
+    val currentLoanAmount by viewModel.currentLoanAmount.collectAsState()
     
-    val stepChange by viewModel.stepChange.collectAsState()
+    val stepChangeAmount by viewModel.stepChangeAmount.collectAsState()
     val stepPercent by viewModel.stepPercent.collectAsState()
-    val stepRate by viewModel.stepRate.collectAsState()
-    val stepPayment by viewModel.stepPayment.collectAsState()
+    val stepInterestRate by viewModel.stepInterestRate.collectAsState()
+    val stepMonthlyPayment by viewModel.stepMonthlyPayment.collectAsState()
 
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply {
         groupingSeparator = ' '
     }
-    val formatter = DecimalFormat("#,###", formatSymbols)
+    val integerFormatter = DecimalFormat("#,###", formatSymbols)
     val decimalFormatter = DecimalFormat("#,##0.00", formatSymbols)
 
     Column(
@@ -115,39 +115,37 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
-                        val displayPayment = if (calculationType == CalculationType.MONTHLY_PAYMENT) calculatedMonthlyPayment else manualMonthlyPayment
-                        val displayProperty = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
+                        val isMonthlyType = calculationType == CalculationType.MONTHLY_PAYMENT
+                        val resultAmount = if (isMonthlyType) calculatedMonthlyPayment else manualMonthlyPayment
+                        val propertyAmount = if (isMonthlyType) propertyValue else calculatedPropertyValue
                         
                         Text(
-                            text = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
-                                decimalFormatter.format(displayPayment) + " руб."
+                            text = if (isMonthlyType) {
+                                decimalFormatter.format(resultAmount) + " руб."
                             } else {
-                                formatter.format(displayProperty) + " руб."
+                                integerFormatter.format(propertyAmount) + " руб."
                             },
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            if (calculationType == CalculationType.MONTHLY_PAYMENT) "Ежемесячный платеж" else "Стоимость объекта",
+                            text = if (isMonthlyType) "Ежемесячный платеж" else "Стоимость объекта",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     TextButton(onClick = {
-                        val currentInterestRate = interestRate
-                        val currentTermYears = termYears
-                        val currentIsAnnuity = isAnnuity
-                        navController.navigate("schedule/${loanAmount}/${currentInterestRate}/${currentTermYears}/${currentIsAnnuity}")
+                        navController.navigate("schedule/${currentLoanAmount}/${interestRate}/${termYears}/${isAnnuity}")
                     }) {
                         Text("График >", color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                ResultRow("Сумма кредита", formatter.format(loanAmount) + " руб.")
+                ResultRow("Сумма кредита", integerFormatter.format(currentLoanAmount) + " руб.")
                 
-                var expanded by remember { mutableStateOf(false) }
+                var isPaymentMenuExpanded by remember { mutableStateOf(false) }
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -155,14 +153,26 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("Тип платежа", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        TextButton(onClick = { expanded = true }) {
+                        TextButton(onClick = { isPaymentMenuExpanded = true }) {
                             Text(if (isAnnuity) "Аннуитетный" else "Дифференцированный")
                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         }
                     }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(text = { Text("Аннуитетный") }, onClick = { viewModel.isAnnuity.value = true; expanded = false })
-                        DropdownMenuItem(text = { Text("Дифференцированный") }, onClick = { viewModel.isAnnuity.value = false; expanded = false })
+                    DropdownMenu(expanded = isPaymentMenuExpanded, onDismissRequest = { isPaymentMenuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Аннуитетный") }, 
+                            onClick = { 
+                                viewModel.isAnnuity.value = true
+                                isPaymentMenuExpanded = false 
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Дифференцированный") }, 
+                            onClick = { 
+                                viewModel.isAnnuity.value = false
+                                isPaymentMenuExpanded = false 
+                            }
+                        )
                     }
                 }
             }
@@ -176,7 +186,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 label = "Стоимость объекта",
                 value = propertyValue,
                 onValueChange = { viewModel.updatePropertyValue(it) },
-                step = stepChange,
+                step = stepChangeAmount,
                 isMoney = true,
                 suffix = " руб.",
                 range = 1.0..1000000000.0
@@ -186,7 +196,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 label = "Ежемесячный платеж",
                 value = manualMonthlyPayment,
                 onValueChange = { viewModel.updateManualMonthlyPayment(it) },
-                step = stepPayment,
+                step = stepMonthlyPayment,
                 isMoney = true,
                 suffix = " руб.",
                 range = 1.0..10000000.0
@@ -197,12 +207,12 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            val currentProp = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
+            val currentPropertyValue = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
             
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Первоначальный взнос", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
-                // Rubles
+                // Rubles input
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     NumericField(
                         value = downPayment,
@@ -210,30 +220,34 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         modifier = Modifier.weight(1f),
                         isMoney = true,
                         suffix = " руб.",
-                        range = if (calculationType == CalculationType.MONTHLY_PAYMENT) 0.0..currentProp else 0.0..1000000000.0
+                        range = if (calculationType == CalculationType.MONTHLY_PAYMENT) 0.0..currentPropertyValue else 0.0..1000000000.0
                     )
                     if (calculationType == CalculationType.MONTHLY_PAYMENT && !isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChange) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChange) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChangeAmount) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChangeAmount) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
                     }
                 }
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray.copy(alpha = 0.2f))
                 
-                // Percentage
+                // Percentage input
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val displayPercent = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
-                        if (currentProp > 0) (downPayment / currentProp * 100) else 0.0
+                    val currentDisplayPercent = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
+                        if (currentPropertyValue > 0) (downPayment / currentPropertyValue * 100) else 0.0
                     } else {
                         downPaymentPercent
                     }
                     
                     NumericField(
-                        value = displayPercent,
+                        value = currentDisplayPercent,
                         onValueChange = { viewModel.updateDownPaymentPercent(it) },
                         modifier = Modifier.weight(1f),
                         suffix = " %",
@@ -244,8 +258,12 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(displayPercent - stepPercent) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(displayPercent + stepPercent) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(currentDisplayPercent - stepPercent) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(currentDisplayPercent + stepPercent) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
                     }
                 }
             }
@@ -258,14 +276,14 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             step = 1.0,
             range = 0.0..30.0,
             isInteger = true,
-            suffix = " " + getYearString(termYears)
+            suffix = " " + formatYearsLabel(termYears)
         )
 
         InputCard(
             label = "Процентная ставка",
             value = interestRate,
             onValueChange = { viewModel.updateInterestRate(it) },
-            step = stepRate,
+            step = stepInterestRate,
             suffix = " %",
             allowEmpty = true,
             range = 0.0..100.0
@@ -274,13 +292,13 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 }
 
 @Composable
-fun ResultRow(label: String, value: String) {
+fun ResultRow(label: String, valueText: String) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(text = valueText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -301,7 +319,7 @@ fun InputCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NumericField(
                     value = value,
@@ -315,14 +333,14 @@ fun InputCard(
                 )
                 Row {
                     IconButton(onClick = { 
-                        val newVal = (value - step).let { if (range != null) it.coerceIn(range) else it.coerceAtLeast(0.0) }
-                        onValueChange(newVal)
+                        val newValue = (value - step).let { if (range != null) it.coerceIn(range) else it.coerceAtLeast(0.0) }
+                        onValueChange(newValue)
                     }) {
                         Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = { 
-                        val newVal = (value + step).let { if (range != null) it.coerceIn(range) else it }
-                        onValueChange(newVal)
+                        val newValue = (value + step).let { if (range != null) it.coerceIn(range) else it }
+                        onValueChange(newValue)
                     }) {
                         Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -340,31 +358,31 @@ fun NumericField(
     isMoney: Boolean = false,
     isInteger: Boolean = false,
     suffix: String = "",
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
     allowEmpty: Boolean = false,
     range: ClosedFloatingPointRange<Double>? = null
 ) {
-    val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
-    val formatter = if (isMoney) DecimalFormat("#,###", symbols) else if (isInteger) DecimalFormat("#", symbols) else DecimalFormat("0.##", symbols)
+    val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
+    val formatter = if (isMoney) DecimalFormat("#,###", formatSymbols) else if (isInteger) DecimalFormat("#", formatSymbols) else DecimalFormat("0.##", formatSymbols)
     
-    var textFieldValue by remember(value) {
-        val text = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
-        mutableStateOf(TextFieldValue(text = text, selection = TextRange(text.length)))
+    var textFieldValueState by remember(value) {
+        val formattedText = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
+        mutableStateOf(TextFieldValue(text = formattedText, selection = TextRange(formattedText.length)))
     }
 
     androidx.compose.foundation.text.BasicTextField(
-        value = textFieldValue,
+        value = textFieldValueState,
         onValueChange = { newValue ->
-            val cleanInput = newValue.text.replace(" ", "").replace(",", ".")
-            if (cleanInput.isEmpty()) {
-                textFieldValue = newValue.copy(text = "")
+            val cleanedInputText = newValue.text.replace(" ", "").replace(",", ".")
+            if (cleanedInputText.isEmpty()) {
+                textFieldValueState = newValue.copy(text = "")
                 if (allowEmpty) onValueChange(0.0)
-            } else if (cleanInput.toDoubleOrNull() != null) {
-                val inputVal = cleanInput.toDouble()
-                val restrictedVal = if (range != null) inputVal.coerceIn(range) else inputVal
+            } else if (cleanedInputText.toDoubleOrNull() != null) {
+                val inputDoubleValue = cleanedInputText.toDouble()
+                val validatedValue = if (range != null) inputDoubleValue.coerceIn(range) else inputDoubleValue
                 
-                textFieldValue = newValue
-                onValueChange(restrictedVal)
+                textFieldValueState = newValue
+                onValueChange(validatedValue)
             }
         },
         singleLine = true,
@@ -372,7 +390,7 @@ fun NumericField(
         textStyle = LocalTextStyle.current.copy(
             fontSize = 32.sp, 
             fontWeight = FontWeight.Bold,
-            color = color,
+            color = textColor,
             textAlign = TextAlign.Start
         ),
         visualTransformation = remember(suffix) { SuffixTransformation(suffix) },

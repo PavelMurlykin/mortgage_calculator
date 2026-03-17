@@ -12,8 +12,8 @@ interface MortgageDao {
     fun getAllCalculations(): Flow<List<MortgageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCalculation(entity: MortgageEntity)
+    suspend fun insertCalculation(mortgageCalculation: MortgageEntity)
 
-    @Query("DELETE FROM calculations WHERE id = :id")
-    suspend fun deleteCalculation(id: Int)
+    @Query("DELETE FROM calculations WHERE id = :calculationId")
+    suspend fun deleteCalculation(calculationId: Int)
 }

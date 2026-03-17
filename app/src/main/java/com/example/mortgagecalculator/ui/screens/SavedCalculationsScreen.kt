@@ -21,8 +21,8 @@ import com.example.mortgagecalculator.ui.MortgageViewModel
 import kotlin.math.pow
 
 @Composable
-fun SavedCalculationsScreen(viewModel: MortgageViewModel, navController: NavController) {
-    val calculations by viewModel.savedCalculations.collectAsState()
+fun SavedCalculationsScreen(mortgageViewModel: MortgageViewModel, navigationController: NavController) {
+    val savedCalculationsList by mortgageViewModel.savedCalculations.collectAsState()
 
     Column(
         modifier = Modifier
@@ -40,32 +40,44 @@ fun SavedCalculationsScreen(viewModel: MortgageViewModel, navController: NavCont
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(calculations) { calculation ->
-                CalculationItem(calculation, onDelete = { viewModel.deleteCalculation(calculation.id) }, onClick = {
-                    val loan = calculation.propertyValue - calculation.downPayment
-                    navController.navigate("schedule/${loan}/${calculation.interestRate}/${calculation.termYears}/${calculation.isAnnuity}")
-                })
+            items(savedCalculationsList) { calculationEntity ->
+                CalculationHistoryItem(
+                    mortgageCalculation = calculationEntity, 
+                    onDeleteClick = { 
+                        mortgageViewModel.deleteSavedCalculation(calculationEntity.id) 
+                    }, 
+                    onItemClick = {
+                        val loanAmountValue = calculationEntity.propertyValue - calculationEntity.downPayment
+                        navigationController.navigate("schedule/${loanAmountValue}/${calculationEntity.interestRate}/${calculationEntity.termYears}/${calculationEntity.isAnnuity}")
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-fun CalculationItem(calculation: MortgageEntity, onDelete: () -> Unit, onClick: () -> Unit) {
-    val loanAmount = calculation.propertyValue - calculation.downPayment
-    val monthlyRate = calculation.interestRate / 100 / 12
-    val months = calculation.termYears * 12
-    val payment = if (calculation.isAnnuity) {
-        if (monthlyRate == 0.0) loanAmount / months
-        else loanAmount * (monthlyRate * (1 + monthlyRate).pow(months)) / ((1 + monthlyRate).pow(months) - 1)
+fun CalculationHistoryItem(
+    mortgageCalculation: MortgageEntity, 
+    onDeleteClick: () -> Unit, 
+    onItemClick: () -> Unit
+) {
+    val currentLoanAmount = mortgageCalculation.propertyValue - mortgageCalculation.downPayment
+    val monthlyInterestRate = mortgageCalculation.interestRate / 100 / 12
+    val totalMonthsCount = mortgageCalculation.termYears * 12
+    
+    val monthlyPaymentValue = if (mortgageCalculation.isAnnuity) {
+        if (monthlyInterestRate == 0.0) currentLoanAmount / totalMonthsCount
+        else currentLoanAmount * (monthlyInterestRate * (1 + monthlyInterestRate).pow(totalMonthsCount)) / 
+                ((1 + monthlyInterestRate).pow(totalMonthsCount) - 1)
     } else {
-        (loanAmount / months) + (loanAmount * monthlyRate) // First payment
+        (currentLoanAmount / totalMonthsCount) + (currentLoanAmount * monthlyInterestRate) // First payment for differentiated
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        onClick = onClick
+        onClick = onItemClick
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -74,7 +86,7 @@ fun CalculationItem(calculation: MortgageEntity, onDelete: () -> Unit, onClick: 
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = formatMillions(calculation.propertyValue),
+                        text = formatAmountInMillions(mortgageCalculation.propertyValue),
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Medium
@@ -82,13 +94,13 @@ fun CalculationItem(calculation: MortgageEntity, onDelete: () -> Unit, onClick: 
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = String.format("%.2f %%", calculation.interestRate),
+                        text = String.format("%.2f %%", mortgageCalculation.interestRate),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "${calculation.termYears} лет",
+                        text = "${mortgageCalculation.termYears} " + formatYearsLabel(mortgageCalculation.termYears),
                         fontSize = 16.sp,
                         color = Color.Gray
                     )
@@ -100,23 +112,23 @@ fun CalculationItem(calculation: MortgageEntity, onDelete: () -> Unit, onClick: 
             Column(horizontalAlignment = Alignment.End) {
                 Text("График", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
                 Text(
-                    text = String.format("%,.0f", payment),
+                    text = String.format("%,.0f", monthlyPaymentValue),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
             
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = null, tint = Color.LightGray)
+            IconButton(onClick = onDeleteClick) {
+                Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = Color.LightGray)
             }
         }
     }
 }
 
-fun formatMillions(value: Double): String {
-    return if (value >= 1_000_000) {
-        String.format("%.1f млн", value / 1_000_000)
+fun formatAmountInMillions(amountValue: Double): String {
+    return if (amountValue >= 1_000_000) {
+        String.format("%.1f млн", amountValue / 1_000_000)
     } else {
-        String.format("%,.0f", value)
+        String.format("%,.0f", amountValue)
     }
 }

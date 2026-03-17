@@ -18,18 +18,22 @@ import com.example.mortgagecalculator.ui.MortgageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: MortgageViewModel) {
-    val stepChange by viewModel.stepChange.collectAsState()
-    val defaultIsAnnuity by viewModel.defaultIsAnnuity.collectAsState()
-    val stepPercent by viewModel.stepPercent.collectAsState()
-    val stepRate by viewModel.stepRate.collectAsState()
-    val stepPayment by viewModel.stepPayment.collectAsState()
-    val calculationType by viewModel.calculationType.collectAsState()
+fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
+    val stepChangeAmount by mortgageViewModel.stepChangeAmount.collectAsState()
+    val defaultIsAnnuity by mortgageViewModel.defaultIsAnnuity.collectAsState()
+    val stepPercent by mortgageViewModel.stepPercent.collectAsState()
+    val stepInterestRate by mortgageViewModel.stepInterestRate.collectAsState()
+    val stepMonthlyPayment by mortgageViewModel.stepMonthlyPayment.collectAsState()
+    val calculationType by mortgageViewModel.calculationType.collectAsState()
     
-    var stepText by remember(stepChange) { mutableStateOf(String.format("%.0f", stepChange)) }
-    var stepPaymentText by remember(stepPayment) { mutableStateOf(String.format("%.0f", stepPayment)) }
+    var stepAmountText by remember(stepChangeAmount) { 
+        mutableStateOf(String.format("%.0f", stepChangeAmount)) 
+    }
+    var stepPaymentText by remember(stepMonthlyPayment) { 
+        mutableStateOf(String.format("%.0f", stepMonthlyPayment)) 
+    }
 
-    val description = if (defaultIsAnnuity) {
+    val paymentDescription = if (defaultIsAnnuity) {
         "Платеж остаётся неизменным до конца срока кредитования. И сумма на погашение тела кредита, и процентная часть всегда разные"
     } else {
         "Сумма платежа уменьшается к концу срока. Тело кредита гасится равными долями, а проценты начисляются на остаток долга"
@@ -47,7 +51,7 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Calculation Type (Moved to Top)
+        // Calculation Type
         Text(
             text = "ТИП РАСЧЁТА",
             fontSize = 12.sp,
@@ -62,13 +66,13 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
                 SettingsOptionRow(
                     text = "Ежемесячный платеж",
                     selected = calculationType == CalculationType.MONTHLY_PAYMENT,
-                    onClick = { viewModel.updateCalculationType(CalculationType.MONTHLY_PAYMENT) }
+                    onClick = { mortgageViewModel.updateCalculationType(CalculationType.MONTHLY_PAYMENT) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsOptionRow(
                     text = "Стоимость объекта",
                     selected = calculationType == CalculationType.PROPERTY_VALUE,
-                    onClick = { viewModel.updateCalculationType(CalculationType.PROPERTY_VALUE) }
+                    onClick = { mortgageViewModel.updateCalculationType(CalculationType.PROPERTY_VALUE) }
                 )
             }
         }
@@ -94,12 +98,12 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
                 )
                 
                 OutlinedTextField(
-                    value = stepText,
+                    value = stepAmountText,
                     onValueChange = { newValue ->
                         if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
-                            stepText = newValue
-                            newValue.toDoubleOrNull()?.let {
-                                viewModel.updateStepChange(it)
+                            stepAmountText = newValue
+                            newValue.toDoubleOrNull()?.let { amount ->
+                                mortgageViewModel.updateStepChangeAmount(amount)
                             }
                         }
                     },
@@ -136,8 +140,8 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
                     onValueChange = { newValue ->
                         if (newValue.isEmpty() || newValue.all { it.isDigit() }) {
                             stepPaymentText = newValue
-                            newValue.toDoubleOrNull()?.let {
-                                viewModel.updateStepPayment(it)
+                            newValue.toDoubleOrNull()?.let { amount ->
+                                mortgageViewModel.updateStepMonthlyPayment(amount)
                             }
                         }
                     },
@@ -155,9 +159,9 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
         StepSelectionCard(
             title = "Шаг изменения взноса (%) и ставки (%)",
             currentStep = stepPercent,
-            onStepSelected = { 
-                viewModel.updateStepPercent(it)
-                viewModel.updateStepRate(it)
+            onStepSelected = { newStep ->
+                mortgageViewModel.updateStepPercent(newStep)
+                mortgageViewModel.updateStepInterestRate(newStep)
             }
         )
 
@@ -178,19 +182,19 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
                 SettingsOptionRow(
                     text = "Аннуитетный",
                     selected = defaultIsAnnuity,
-                    onClick = { viewModel.updateDefaultPaymentType(true) }
+                    onClick = { mortgageViewModel.updateDefaultPaymentType(true) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsOptionRow(
                     text = "Дифференцированный",
                     selected = !defaultIsAnnuity,
-                    onClick = { viewModel.updateDefaultPaymentType(false) }
+                    onClick = { mortgageViewModel.updateDefaultPaymentType(false) }
                 )
             }
         }
         
         Text(
-            text = description,
+            text = paymentDescription,
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp)
@@ -206,9 +210,9 @@ fun StepSelectionCard(title: String, currentStep: Double, onStepSelected: (Doubl
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
-            val options = listOf(1.0, 0.1, 0.01)
+            val stepOptions = listOf(1.0, 0.1, 0.01)
             Row(Modifier.selectableGroup()) {
-                options.forEach { option ->
+                stepOptions.forEach { option ->
                     Row(
                         Modifier
                             .weight(1f)
@@ -221,7 +225,11 @@ fun StepSelectionCard(title: String, currentStep: Double, onStepSelected: (Doubl
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(selected = (currentStep == option), onClick = null)
-                        Text(text = "$option%", modifier = Modifier.padding(start = 4.dp), fontSize = 14.sp)
+                        Text(
+                            text = String.format("%.2f%%", option), 
+                            modifier = Modifier.padding(start = 4.dp), 
+                            fontSize = 14.sp
+                        )
                     }
                 }
             }

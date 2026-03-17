@@ -27,34 +27,42 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MortgageCalculatorTheme {
-                MainScreen()
+                MainAppScreen()
             }
         }
     }
 }
 
-sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Settings : Screen("settings", "Настройки", Icons.Default.Settings)
-    object Calculation : Screen("calculation", "Расчет", Icons.Default.Calculate)
-    object Saved : Screen("saved", "Список", Icons.AutoMirrored.Filled.List)
+sealed class AppScreen(val route: String, val title: String, val icon: ImageVector) {
+    object Settings : AppScreen("settings", "Настройки", Icons.Default.Settings)
+    object Calculation : AppScreen("calculation", "Расчет", Icons.Default.Calculate)
+    object SavedCalculations : AppScreen("saved", "Список", Icons.AutoMirrored.Filled.List)
 }
 
 @Composable
-fun MainScreen() {
+fun MainAppScreen() {
     val navController = rememberNavController()
-    val viewModel: MortgageViewModel = viewModel()
+    val mortgageViewModel: MortgageViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
+            val navigationBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentDestination = navigationBackStackEntry?.destination
             
-            val showBottomBar = currentDestination?.route in listOf(Screen.Settings.route, Screen.Calculation.route, Screen.Saved.route)
+            val shouldShowBottomBar = currentDestination?.route in listOf(
+                AppScreen.Settings.route, 
+                AppScreen.Calculation.route, 
+                AppScreen.SavedCalculations.route
+            )
             
-            if (showBottomBar) {
+            if (shouldShowBottomBar) {
                 NavigationBar {
-                    val items = listOf(Screen.Settings, Screen.Calculation, Screen.Saved)
-                    items.forEach { screen ->
+                    val navigationItems = listOf(
+                        AppScreen.Settings, 
+                        AppScreen.Calculation, 
+                        AppScreen.SavedCalculations
+                    )
+                    navigationItems.forEach { screen ->
                         NavigationBarItem(
                             icon = { Icon(screen.icon, contentDescription = null) },
                             label = { Text(screen.title) },
@@ -76,18 +84,31 @@ fun MainScreen() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Calculation.route,
+            startDestination = AppScreen.Calculation.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Settings.route) { SettingsScreen(viewModel) }
-            composable(Screen.Calculation.route) { CalculationScreen(viewModel, navController) }
-            composable(Screen.Saved.route) { SavedCalculationsScreen(viewModel, navController) }
-            composable("schedule/{loan}/{rate}/{years}/{isAnnuity}") { backStackEntry ->
-                val loan = backStackEntry.arguments?.getString("loan")?.toDoubleOrNull() ?: 0.0
-                val rate = backStackEntry.arguments?.getString("rate")?.toDoubleOrNull() ?: 0.0
-                val years = backStackEntry.arguments?.getString("years")?.toIntOrNull() ?: 0
+            composable(AppScreen.Settings.route) { 
+                SettingsScreen(mortgageViewModel) 
+            }
+            composable(AppScreen.Calculation.route) { 
+                CalculationScreen(mortgageViewModel, navController) 
+            }
+            composable(AppScreen.SavedCalculations.route) { 
+                SavedCalculationsScreen(mortgageViewModel, navController) 
+            }
+            composable("schedule/{loanAmount}/{interestRate}/{termYears}/{isAnnuity}") { backStackEntry ->
+                val loanAmount = backStackEntry.arguments?.getString("loanAmount")?.toDoubleOrNull() ?: 0.0
+                val interestRate = backStackEntry.arguments?.getString("interestRate")?.toDoubleOrNull() ?: 0.0
+                val termYears = backStackEntry.arguments?.getString("termYears")?.toIntOrNull() ?: 0
                 val isAnnuity = backStackEntry.arguments?.getString("isAnnuity")?.toBoolean() ?: true
-                PaymentScheduleScreen(loan, rate, years, isAnnuity, onBack = { navController.popBackStack() })
+                
+                PaymentScheduleScreen(
+                    loanAmount = loanAmount, 
+                    interestRate = interestRate, 
+                    termYears = termYears, 
+                    isAnnuity = isAnnuity, 
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

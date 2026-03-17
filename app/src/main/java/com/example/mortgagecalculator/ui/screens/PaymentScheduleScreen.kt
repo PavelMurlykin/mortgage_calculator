@@ -2,10 +2,9 @@ package com.example.mortgagecalculator.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,16 +13,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.text.SimpleDateFormat
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.util.*
 import kotlin.math.pow
 
-data class PaymentScheduleItem(
-    val monthName: String,
-    val year: Int,
-    val payment: Double,
-    val principal: Double,
-    val interest: Double,
+data class PaymentItem(
+    val monthNumber: Int,
+    val paymentAmount: Double,
+    val principalAmount: Double,
+    val interestAmount: Double,
     val remainingBalance: Double
 )
 
@@ -32,161 +31,123 @@ data class PaymentScheduleItem(
 fun PaymentScheduleScreen(
     loanAmount: Double,
     interestRate: Double,
-    years: Int,
+    termYears: Int,
     isAnnuity: Boolean,
     onBack: () -> Unit
 ) {
-    val schedule = calculateSchedule(loanAmount, interestRate, years, isAnnuity)
+    val paymentSchedule = calculatePaymentSchedule(loanAmount, interestRate, termYears, isAnnuity)
+    val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
+    val formatter = DecimalFormat("#,###.00", symbols)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("График платежей", fontWeight = FontWeight.Bold) },
+                title = { Text("График платежей") },
                 navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text("Закрыть", color = MaterialTheme.colorScheme.primary)
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
                     }
                 }
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-        ) {
-            // Summary Card - Simplified
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = String.format("%,.0f", if (schedule.isNotEmpty()) schedule.first().payment else 0.0),
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text("Первый платеж", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            // Table Header
+        Column(modifier = Modifier.padding(innerPadding)) {
+            // Header
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Месяц", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Платёж", modifier = Modifier.weight(1f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Остаток", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("№", modifier = Modifier.weight(0.15f), fontWeight = FontWeight.Bold)
+                Text("Платеж", modifier = Modifier.weight(0.35f), fontWeight = FontWeight.Bold)
+                Text("Остаток", modifier = Modifier.weight(0.5f), fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.End)
             }
+            HorizontalDivider()
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                val groupedByYear = schedule.groupBy { it.year }
-                groupedByYear.forEach { (year, yearItems) ->
-                    item {
+                itemsIndexed(paymentSchedule) { index, paymentItem ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("${paymentItem.monthNumber}", modifier = Modifier.weight(0.15f), fontSize = 14.sp)
+                        Column(modifier = Modifier.weight(0.35f)) {
+                            Text(formatter.format(paymentItem.paymentAmount), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                "П: ${formatter.format(paymentItem.principalAmount)} / %: ${formatter.format(paymentItem.interestAmount)}",
+                                fontSize = 10.sp,
+                                color = Color.Gray
+                            )
+                        }
                         Text(
-                            text = year.toString(),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(vertical = 16.dp)
+                            formatter.format(paymentItem.remainingBalance),
+                            modifier = Modifier.weight(0.5f),
+                            fontSize = 14.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End
                         )
                     }
-                    items(yearItems) { item ->
-                        ScheduleRow(item)
-                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                    }
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = Color.LightGray)
                 }
             }
         }
     }
 }
 
-@Composable
-fun ScheduleRow(item: PaymentScheduleItem) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1.5f)) {
-            Text(item.monthName, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-        }
-        Text(
-            text = String.format("%,.0f", item.payment),
-            modifier = Modifier.weight(1f),
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = String.format("%,.0f", item.remainingBalance),
-            modifier = Modifier.weight(1.5f),
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-fun calculateSchedule(
+private fun calculatePaymentSchedule(
     loanAmount: Double,
     interestRate: Double,
-    years: Int,
+    termYears: Int,
     isAnnuity: Boolean
-): List<PaymentScheduleItem> {
-    val schedule = mutableListOf<PaymentScheduleItem>()
-    val months = years * 12
-    val monthlyRate = interestRate / 100 / 12
-    var remainingBalance = loanAmount
-    
-    val calendar = Calendar.getInstance()
-    val monthFormat = SimpleDateFormat("LLLL", Locale("ru"))
+): List<PaymentItem> {
+    val scheduleList = mutableListOf<PaymentItem>()
+    if (loanAmount <= 0 || termYears <= 0) return scheduleList
+
+    val monthlyInterestRate = interestRate / 100 / 12
+    val totalMonths = termYears * 12
+    var remainingBalanceValue = loanAmount
 
     if (isAnnuity) {
-        val payment = if (monthlyRate == 0.0) loanAmount / months
-        else loanAmount * (monthlyRate * (1 + monthlyRate).pow(months)) / ((1 + monthlyRate).pow(months) - 1)
-        
-        for (i in 1..months) {
-            val interest = remainingBalance * monthlyRate
-            val principal = payment - interest
-            remainingBalance = (remainingBalance - principal).coerceAtLeast(0.0)
-            
-            schedule.add(
-                PaymentScheduleItem(
-                    monthName = monthFormat.format(calendar.time).replaceFirstChar { it.uppercase() },
-                    year = calendar.get(Calendar.YEAR),
-                    payment = payment,
-                    principal = principal,
-                    interest = interest,
-                    remainingBalance = remainingBalance
+        val annuityPayment = if (monthlyInterestRate == 0.0) {
+            loanAmount / totalMonths
+        } else {
+            loanAmount * (monthlyInterestRate * (1 + monthlyInterestRate).pow(totalMonths)) /
+                    ((1 + monthlyInterestRate).pow(totalMonths) - 1)
+        }
+
+        for (month in 1..totalMonths) {
+            val interestPart = remainingBalanceValue * monthlyInterestRate
+            val principalPart = annuityPayment - interestPart
+            remainingBalanceValue -= principalPart
+            scheduleList.add(
+                PaymentItem(
+                    monthNumber = month,
+                    paymentAmount = annuityPayment,
+                    principalAmount = principalPart,
+                    interestAmount = interestPart,
+                    remainingBalance = remainingBalanceValue.coerceAtLeast(0.0)
                 )
             )
-            calendar.add(Calendar.MONTH, 1)
         }
     } else {
-        val principalPart = loanAmount / months
-        for (i in 1..months) {
-            val interest = remainingBalance * monthlyRate
-            val payment = principalPart + interest
-            remainingBalance = (remainingBalance - principalPart).coerceAtLeast(0.0)
-            
-            schedule.add(
-                PaymentScheduleItem(
-                    monthName = monthFormat.format(calendar.time).replaceFirstChar { it.uppercase() },
-                    year = calendar.get(Calendar.YEAR),
-                    payment = payment,
-                    principal = principalPart,
-                    interest = interest,
-                    remainingBalance = remainingBalance
+        val fixedPrincipalPart = loanAmount / totalMonths
+        for (month in 1..totalMonths) {
+            val interestPart = remainingBalanceValue * monthlyInterestRate
+            val currentMonthlyPayment = fixedPrincipalPart + interestPart
+            remainingBalanceValue -= fixedPrincipalPart
+            scheduleList.add(
+                PaymentItem(
+                    monthNumber = month,
+                    paymentAmount = currentMonthlyPayment,
+                    principalAmount = fixedPrincipalPart,
+                    interestAmount = interestPart,
+                    remainingBalance = remainingBalanceValue.coerceAtLeast(0.0)
                 )
             )
-            calendar.add(Calendar.MONTH, 1)
         }
     }
-    return schedule
+
+    return scheduleList
 }
