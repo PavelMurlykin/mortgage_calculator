@@ -60,6 +60,7 @@ class SuffixTransformation(val suffix: String) : VisualTransformation {
 fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController) {
     val propertyValue by viewModel.propertyValue.collectAsState()
     val downPayment by viewModel.downPayment.collectAsState()
+    val downPaymentPercent by viewModel.downPaymentPercent.collectAsState()
     val termYears by viewModel.termYears.collectAsState()
     val interestRate by viewModel.interestRate.collectAsState()
     val isAnnuity by viewModel.isAnnuity.collectAsState()
@@ -74,6 +75,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
     val stepChange by viewModel.stepChange.collectAsState()
     val stepPercent by viewModel.stepPercent.collectAsState()
     val stepRate by viewModel.stepRate.collectAsState()
+    val stepPayment by viewModel.stepPayment.collectAsState()
 
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply {
         groupingSeparator = ' '
@@ -184,7 +186,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 label = "Ежемесячный платеж",
                 value = manualMonthlyPayment,
                 onValueChange = { viewModel.updateManualMonthlyPayment(it) },
-                step = stepChange / 10, // Smaller step for payment
+                step = stepPayment,
                 isMoney = true,
                 suffix = " руб.",
                 range = 1.0..10000000.0
@@ -208,9 +210,9 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         modifier = Modifier.weight(1f),
                         isMoney = true,
                         suffix = " руб.",
-                        range = 0.0..currentProp
+                        range = if (calculationType == CalculationType.MONTHLY_PAYMENT) 0.0..currentProp else 0.0..1000000000.0
                     )
-                    if (!isPercentLocked) {
+                    if (calculationType == CalculationType.MONTHLY_PAYMENT && !isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
@@ -224,21 +226,26 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 
                 // Percentage
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val percent = if (currentProp > 0) (downPayment / currentProp * 100) else 0.0
+                    val displayPercent = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
+                        if (currentProp > 0) (downPayment / currentProp * 100) else 0.0
+                    } else {
+                        downPaymentPercent
+                    }
+                    
                     NumericField(
-                        value = percent,
+                        value = displayPercent,
                         onValueChange = { viewModel.updateDownPaymentPercent(it) },
                         modifier = Modifier.weight(1f),
                         suffix = " %",
                         range = 0.0..100.0
                     )
-                    if (isPercentLocked) {
+                    if (calculationType == CalculationType.MONTHLY_PAYMENT && isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent - stepPercent) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent + stepPercent) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(displayPercent - stepPercent) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(displayPercent + stepPercent) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
             }
