@@ -11,3 +11,7 @@
 .cxx
 /google-services.json
 *.log
+*.jks
+release-key
+gradle.properties
+app/release/

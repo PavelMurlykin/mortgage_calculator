@@ -9,6 +9,22 @@ android {
     namespace = "com.pamurlykin.mortgagecalculator"
     compileSdk = 35
 
+    signingConfigs {
+        create("release") {
+            val keyFile = project.findProperty("MY_RELEASE_KEY_FILE") as String?
+            val keyAlias = project.findProperty("MY_RELEASE_KEY_ALIAS") as String?
+            val keyPassword = project.findProperty("MY_RELEASE_KEY_PASSWORD") as String?
+            val storePassword = project.findProperty("MY_RELEASE_STORE_PASSWORD") as String?
+
+            if (keyFile != null && keyAlias != null && keyPassword != null && storePassword != null) {
+                storeFile = file(keyFile)
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+                this.storePassword = storePassword
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.pamurlykin.mortgagecalculator"
         minSdk = 24
@@ -21,11 +37,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
