@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.mortgagecalculator.data.CalculationType
 import com.example.mortgagecalculator.ui.MortgageViewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -63,9 +64,12 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
     val interestRate by viewModel.interestRate.collectAsState()
     val isAnnuity by viewModel.isAnnuity.collectAsState()
     val isPercentLocked by viewModel.isDownPaymentPercentLocked.collectAsState()
+    val manualMonthlyPayment by viewModel.manualMonthlyPayment.collectAsState()
+    val calculationType by viewModel.calculationType.collectAsState()
 
+    val calculatedMonthlyPayment by viewModel.calculatedMonthlyPayment.collectAsState()
+    val calculatedPropertyValue by viewModel.calculatedPropertyValue.collectAsState()
     val loanAmount by viewModel.loanAmount.collectAsState()
-    val monthlyPayment by viewModel.monthlyPayment.collectAsState()
     
     val stepChange by viewModel.stepChange.collectAsState()
     val stepPercent by viewModel.stepPercent.collectAsState()
@@ -109,16 +113,30 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                     verticalAlignment = Alignment.Top
                 ) {
                     Column {
+                        val displayPayment = if (calculationType == CalculationType.MONTHLY_PAYMENT) calculatedMonthlyPayment else manualMonthlyPayment
+                        val displayProperty = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
+                        
                         Text(
-                            text = decimalFormatter.format(monthlyPayment) + " руб.",
+                            text = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
+                                decimalFormatter.format(displayPayment) + " руб."
+                            } else {
+                                formatter.format(displayProperty) + " руб."
+                            },
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        Text("Ежемесячный платеж", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (calculationType == CalculationType.MONTHLY_PAYMENT) "Ежемесячный платеж" else "Стоимость объекта",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     TextButton(onClick = {
-                        navController.navigate("schedule/${loanAmount}/${interestRate}/${termYears}/${isAnnuity}")
+                        val currentInterestRate = interestRate
+                        val currentTermYears = termYears
+                        val currentIsAnnuity = isAnnuity
+                        navController.navigate("schedule/${loanAmount}/${currentInterestRate}/${currentTermYears}/${currentIsAnnuity}")
                     }) {
                         Text("График >", color = MaterialTheme.colorScheme.primary)
                     }
@@ -150,20 +168,35 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        InputCard(
-            label = "Стоимость объекта",
-            value = propertyValue,
-            onValueChange = { viewModel.updatePropertyValue(it) },
-            step = stepChange,
-            isMoney = true,
-            suffix = " руб.",
-            range = 1.0..1000000000.0 // Reasonable max
-        )
+        // Toggle Input Field based on Calculation Type
+        if (calculationType == CalculationType.MONTHLY_PAYMENT) {
+            InputCard(
+                label = "Стоимость объекта",
+                value = propertyValue,
+                onValueChange = { viewModel.updatePropertyValue(it) },
+                step = stepChange,
+                isMoney = true,
+                suffix = " руб.",
+                range = 1.0..1000000000.0
+            )
+        } else {
+            InputCard(
+                label = "Ежемесячный платеж",
+                value = manualMonthlyPayment,
+                onValueChange = { viewModel.updateManualMonthlyPayment(it) },
+                step = stepChange / 10, // Smaller step for payment
+                isMoney = true,
+                suffix = " руб.",
+                range = 1.0..10000000.0
+            )
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
+            val currentProp = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
+            
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Первоначальный взнос", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
@@ -175,7 +208,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         modifier = Modifier.weight(1f),
                         isMoney = true,
                         suffix = " руб.",
-                        range = 0.0..propertyValue
+                        range = 0.0..currentProp
                     )
                     if (!isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
@@ -191,7 +224,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 
                 // Percentage
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val percent = if (propertyValue > 0) (downPayment / propertyValue * 100) else 0.0
+                    val percent = if (currentProp > 0) (downPayment / currentProp * 100) else 0.0
                     NumericField(
                         value = percent,
                         onValueChange = { viewModel.updateDownPaymentPercent(it) },
@@ -321,7 +354,6 @@ fun NumericField(
                 if (allowEmpty) onValueChange(0.0)
             } else if (cleanInput.toDoubleOrNull() != null) {
                 val inputVal = cleanInput.toDouble()
-                // Apply range restriction on manual input
                 val restrictedVal = if (range != null) inputVal.coerceIn(range) else inputVal
                 
                 textFieldValue = newValue

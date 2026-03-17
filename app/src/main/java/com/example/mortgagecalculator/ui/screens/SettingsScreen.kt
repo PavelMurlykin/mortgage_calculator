@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mortgagecalculator.data.CalculationType
 import com.example.mortgagecalculator.ui.MortgageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,6 +23,7 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
     val defaultIsAnnuity by viewModel.defaultIsAnnuity.collectAsState()
     val stepPercent by viewModel.stepPercent.collectAsState()
     val stepRate by viewModel.stepRate.collectAsState()
+    val calculationType by viewModel.calculationType.collectAsState()
     
     var stepText by remember(stepChange) { mutableStateOf(String.format("%.0f", stepChange)) }
 
@@ -86,6 +88,34 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Calculation Type
+        Text(
+            text = "ТИП РАСЧЁТА",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(Modifier.selectableGroup()) {
+                SettingsOptionRow(
+                    text = "Ежемесячный платеж",
+                    selected = calculationType == CalculationType.MONTHLY_PAYMENT,
+                    onClick = { viewModel.updateCalculationType(CalculationType.MONTHLY_PAYMENT) }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                SettingsOptionRow(
+                    text = "Стоимость объекта",
+                    selected = calculationType == CalculationType.PROPERTY_VALUE,
+                    onClick = { viewModel.updateCalculationType(CalculationType.PROPERTY_VALUE) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "ТИП ПЛАТЕЖА ПО УМОЛЧАНИЮ",
             fontSize = 12.sp,
@@ -98,13 +128,13 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(Modifier.selectableGroup()) {
-                PaymentTypeRow(
+                SettingsOptionRow(
                     text = "Аннуитетный",
                     selected = defaultIsAnnuity,
                     onClick = { viewModel.updateDefaultPaymentType(true) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                PaymentTypeRow(
+                SettingsOptionRow(
                     text = "Дифференцированный",
                     selected = !defaultIsAnnuity,
                     onClick = { viewModel.updateDefaultPaymentType(false) }
@@ -153,7 +183,7 @@ fun StepSelectionCard(title: String, currentStep: Double, onStepSelected: (Doubl
 }
 
 @Composable
-fun PaymentTypeRow(text: String, selected: Boolean, onClick: () -> Unit) {
+fun SettingsOptionRow(text: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
