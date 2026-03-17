@@ -1,4 +1,4 @@
-package com.example.mortgagecalculator.ui.theme
+package com.pamurlykin.mortgagecalculator.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*

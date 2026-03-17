@@ -1,4 +1,4 @@
-package com.example.mortgagecalculator
+package com.pamurlykin.mortgagecalculator
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -17,9 +17,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
-import com.example.mortgagecalculator.ui.MortgageViewModel
-import com.example.mortgagecalculator.ui.screens.*
-import com.example.mortgagecalculator.ui.theme.MortgageCalculatorTheme
+import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
+import com.pamurlykin.mortgagecalculator.ui.screens.*
+import com.pamurlykin.mortgagecalculator.ui.theme.MortgageCalculatorTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,12 +41,12 @@ sealed class AppScreen(val route: String, val title: String, val icon: ImageVect
 
 @Composable
 fun MainAppScreen() {
-    val navController = rememberNavController()
+    val navigationController = rememberNavController()
     val mortgageViewModel: MortgageViewModel = viewModel()
 
     Scaffold(
         bottomBar = {
-            val navigationBackStackEntry by navController.currentBackStackEntryAsState()
+            val navigationBackStackEntry by navigationController.currentBackStackEntryAsState()
             val currentDestination = navigationBackStackEntry?.destination
             
             val shouldShowBottomBar = currentDestination?.route in listOf(
@@ -68,8 +68,8 @@ fun MainAppScreen() {
                             label = { Text(screen.title) },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
+                                navigationController.navigate(screen.route) {
+                                    popUpTo(navigationController.graph.findStartDestination().id) {
                                         saveState = true
                                     }
                                     launchSingleTop = true
@@ -83,7 +83,7 @@ fun MainAppScreen() {
         }
     ) { innerPadding ->
         NavHost(
-            navController = navController,
+            navController = navigationController,
             startDestination = AppScreen.Calculation.route,
             modifier = Modifier.padding(innerPadding)
         ) {
@@ -91,10 +91,10 @@ fun MainAppScreen() {
                 SettingsScreen(mortgageViewModel) 
             }
             composable(AppScreen.Calculation.route) { 
-                CalculationScreen(mortgageViewModel, navController) 
+                CalculationScreen(mortgageViewModel, navigationController) 
             }
             composable(AppScreen.SavedCalculations.route) { 
-                SavedCalculationsScreen(mortgageViewModel, navController) 
+                SavedCalculationsScreen(mortgageViewModel, navigationController) 
             }
             composable("schedule/{loanAmount}/{interestRate}/{termYears}/{isAnnuity}") { backStackEntry ->
                 val loanAmount = backStackEntry.arguments?.getString("loanAmount")?.toDoubleOrNull() ?: 0.0
@@ -107,7 +107,7 @@ fun MainAppScreen() {
                     interestRate = interestRate, 
                     termYears = termYears, 
                     isAnnuity = isAnnuity, 
-                    onBack = { navController.popBackStack() }
+                    onBack = { navigationController.popBackStack() }
                 )
             }
         }

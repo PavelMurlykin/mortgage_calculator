@@ -1,4 +1,4 @@
-package com.example.mortgagecalculator.data
+package com.pamurlykin.mortgagecalculator.data
 
 import android.content.Context
 import androidx.room.Database

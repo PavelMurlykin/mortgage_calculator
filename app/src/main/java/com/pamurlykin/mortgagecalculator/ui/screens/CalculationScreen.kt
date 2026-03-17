@@ -1,4 +1,4 @@
-package com.example.mortgagecalculator.ui.screens
+package com.pamurlykin.mortgagecalculator.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,8 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.mortgagecalculator.data.CalculationType
-import com.example.mortgagecalculator.ui.MortgageViewModel
+import com.pamurlykin.mortgagecalculator.data.CalculationType
+import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
@@ -57,25 +57,25 @@ class SuffixTransformation(private val suffix: String) : VisualTransformation {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController) {
-    val propertyValue by viewModel.propertyValue.collectAsState()
-    val downPayment by viewModel.downPayment.collectAsState()
-    val downPaymentPercent by viewModel.downPaymentPercent.collectAsState()
-    val termYears by viewModel.termYears.collectAsState()
-    val interestRate by viewModel.interestRate.collectAsState()
-    val isAnnuity by viewModel.isAnnuity.collectAsState()
-    val isPercentLocked by viewModel.isDownPaymentPercentLocked.collectAsState()
-    val manualMonthlyPayment by viewModel.manualMonthlyPayment.collectAsState()
-    val calculationType by viewModel.calculationType.collectAsState()
+fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavController) {
+    val propertyValue by mortgageViewModel.propertyValue.collectAsState()
+    val downPayment by mortgageViewModel.downPayment.collectAsState()
+    val downPaymentPercent by mortgageViewModel.downPaymentPercent.collectAsState()
+    val termYears by mortgageViewModel.termYears.collectAsState()
+    val interestRate by mortgageViewModel.interestRate.collectAsState()
+    val isAnnuity by mortgageViewModel.isAnnuity.collectAsState()
+    val isPercentLocked by mortgageViewModel.isDownPaymentPercentLocked.collectAsState()
+    val manualMonthlyPayment by mortgageViewModel.manualMonthlyPayment.collectAsState()
+    val calculationType by mortgageViewModel.calculationType.collectAsState()
 
-    val calculatedMonthlyPayment by viewModel.calculatedMonthlyPayment.collectAsState()
-    val calculatedPropertyValue by viewModel.calculatedPropertyValue.collectAsState()
-    val currentLoanAmount by viewModel.currentLoanAmount.collectAsState()
+    val calculatedMonthlyPayment by mortgageViewModel.calculatedMonthlyPayment.collectAsState()
+    val calculatedPropertyValue by mortgageViewModel.calculatedPropertyValue.collectAsState()
+    val currentLoanAmount by mortgageViewModel.currentLoanAmount.collectAsState()
     
-    val stepChangeAmount by viewModel.stepChangeAmount.collectAsState()
-    val stepPercent by viewModel.stepPercent.collectAsState()
-    val stepInterestRate by viewModel.stepInterestRate.collectAsState()
-    val stepMonthlyPayment by viewModel.stepMonthlyPayment.collectAsState()
+    val stepChangeAmount by mortgageViewModel.stepChangeAmount.collectAsState()
+    val stepPercent by mortgageViewModel.stepPercent.collectAsState()
+    val stepInterestRate by mortgageViewModel.stepInterestRate.collectAsState()
+    val stepMonthlyPayment by mortgageViewModel.stepMonthlyPayment.collectAsState()
 
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply {
         groupingSeparator = ' '
@@ -95,7 +95,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Расчет", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-            IconButton(onClick = { viewModel.saveCalculation() }) {
+            IconButton(onClick = { mortgageViewModel.saveCalculation() }) {
                 Icon(Icons.Default.Save, contentDescription = "Сохранить", tint = MaterialTheme.colorScheme.primary)
             }
         }
@@ -162,14 +162,14 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         DropdownMenuItem(
                             text = { Text("Аннуитетный") }, 
                             onClick = { 
-                                viewModel.isAnnuity.value = true
+                                mortgageViewModel.isAnnuity.value = true
                                 isPaymentMenuExpanded = false 
                             }
                         )
                         DropdownMenuItem(
                             text = { Text("Дифференцированный") }, 
                             onClick = { 
-                                viewModel.isAnnuity.value = false
+                                mortgageViewModel.isAnnuity.value = false
                                 isPaymentMenuExpanded = false 
                             }
                         )
@@ -185,7 +185,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             InputCard(
                 label = "Стоимость объекта",
                 value = propertyValue,
-                onValueChange = { viewModel.updatePropertyValue(it) },
+                onValueChange = { mortgageViewModel.updatePropertyValue(it) },
                 step = stepChangeAmount,
                 isMoney = true,
                 suffix = " руб.",
@@ -195,7 +195,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             InputCard(
                 label = "Ежемесячный платеж",
                 value = manualMonthlyPayment,
-                onValueChange = { viewModel.updateManualMonthlyPayment(it) },
+                onValueChange = { mortgageViewModel.updateManualMonthlyPayment(it) },
                 step = stepMonthlyPayment,
                 isMoney = true,
                 suffix = " руб.",
@@ -216,7 +216,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     NumericField(
                         value = downPayment,
-                        onValueChange = { viewModel.updateDownPayment(it) },
+                        onValueChange = { mortgageViewModel.updateDownPayment(it) },
                         modifier = Modifier.weight(1f),
                         isMoney = true,
                         suffix = " руб.",
@@ -227,10 +227,10 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChangeAmount) }) { 
+                        IconButton(onClick = { mortgageViewModel.updateDownPayment(downPayment - stepChangeAmount) }) { 
                             Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                         }
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChangeAmount) }) { 
+                        IconButton(onClick = { mortgageViewModel.updateDownPayment(downPayment + stepChangeAmount) }) { 
                             Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                         }
                     }
@@ -248,7 +248,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                     
                     NumericField(
                         value = currentDisplayPercent,
-                        onValueChange = { viewModel.updateDownPaymentPercent(it) },
+                        onValueChange = { mortgageViewModel.updateDownPaymentPercent(it) },
                         modifier = Modifier.weight(1f),
                         suffix = " %",
                         range = 0.0..100.0
@@ -258,10 +258,10 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(currentDisplayPercent - stepPercent) }) { 
+                        IconButton(onClick = { mortgageViewModel.updateDownPaymentPercent(currentDisplayPercent - stepPercent) }) { 
                             Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                         }
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(currentDisplayPercent + stepPercent) }) { 
+                        IconButton(onClick = { mortgageViewModel.updateDownPaymentPercent(currentDisplayPercent + stepPercent) }) { 
                             Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                         }
                     }
@@ -272,7 +272,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
         InputCard(
             label = "Срок",
             value = termYears.toDouble(),
-            onValueChange = { viewModel.updateTermYears(it.toInt()) },
+            onValueChange = { mortgageViewModel.updateTermYears(it.toInt()) },
             step = 1.0,
             range = 0.0..30.0,
             isInteger = true,
@@ -282,7 +282,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
         InputCard(
             label = "Процентная ставка",
             value = interestRate,
-            onValueChange = { viewModel.updateInterestRate(it) },
+            onValueChange = { mortgageViewModel.updateInterestRate(it) },
             step = stepInterestRate,
             suffix = " %",
             allowEmpty = true,

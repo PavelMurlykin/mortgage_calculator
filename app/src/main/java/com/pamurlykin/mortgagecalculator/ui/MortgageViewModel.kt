@@ -1,12 +1,12 @@
-package com.example.mortgagecalculator.ui
+package com.pamurlykin.mortgagecalculator.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.mortgagecalculator.data.AppDatabase
-import com.example.mortgagecalculator.data.CalculationType
-import com.example.mortgagecalculator.data.MortgageEntity
-import com.example.mortgagecalculator.data.SettingsManager
+import com.pamurlykin.mortgagecalculator.data.AppDatabase
+import com.pamurlykin.mortgagecalculator.data.CalculationType
+import com.pamurlykin.mortgagecalculator.data.MortgageEntity
+import com.pamurlykin.mortgagecalculator.data.SettingsManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.math.pow

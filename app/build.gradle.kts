@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mortgagecalculator"
+    namespace = "com.pamurlykin.mortgagecalculator"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.mortgagecalculator"
+        applicationId = "com.pamurlykin.mortgagecalculator"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

@@ -1,4 +1,4 @@
-package com.example.mortgagecalculator.ui.screens
+package com.pamurlykin.mortgagecalculator.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
@@ -13,8 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.mortgagecalculator.data.CalculationType
-import com.example.mortgagecalculator.ui.MortgageViewModel
+import com.pamurlykin.mortgagecalculator.data.CalculationType
+import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
