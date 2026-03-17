@@ -7,15 +7,21 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -23,6 +29,30 @@ import com.example.mortgagecalculator.ui.MortgageViewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
+
+fun getYearString(years: Int): String {
+    val mod10 = years % 10
+    val mod100 = years % 100
+    return when {
+        mod10 == 1 && mod100 != 11 -> "год"
+        mod10 in 2..4 && (mod100 < 10 || mod100 >= 20) -> "года"
+        else -> "лет"
+    }
+}
+
+class SuffixTransformation(val suffix: String) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val result = text + AnnotatedString(suffix)
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int = offset
+            override fun transformedToOriginal(offset: Int): Int {
+                if (offset > text.length) return text.length
+                return offset
+            }
+        }
+        return TransformedText(result, mapping)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +66,6 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 
     val loanAmount by viewModel.loanAmount.collectAsState()
     val monthlyPayment by viewModel.monthlyPayment.collectAsState()
-    val totalInterest by viewModel.totalInterest.collectAsState()
     
     val stepChange by viewModel.stepChange.collectAsState()
     val stepPercent by viewModel.stepPercent.collectAsState()
@@ -54,17 +83,12 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // Title aligned with other screens
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Расчет",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = "Расчет", fontSize = 32.sp, fontWeight = FontWeight.Bold)
             IconButton(onClick = { viewModel.saveCalculation() }) {
                 Icon(Icons.Default.Save, contentDescription = "Сохранить", tint = MaterialTheme.colorScheme.primary)
             }
@@ -86,7 +110,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 ) {
                     Column {
                         Text(
-                            text = decimalFormatter.format(monthlyPayment),
+                            text = decimalFormatter.format(monthlyPayment) + " руб.",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -101,11 +125,8 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                ResultRow("Сумма кредита", formatter.format(loanAmount))
-                ResultRow("Сумма процентов", formatter.format(totalInterest))
+                ResultRow("Сумма кредита", formatter.format(loanAmount) + " руб.")
                 
-                // Payment type dropdown
                 var expanded by remember { mutableStateOf(false) }
                 Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                     Row(
@@ -120,20 +141,8 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         }
                     }
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        DropdownMenuItem(
-                            text = { Text("Аннуитетный") },
-                            onClick = {
-                                viewModel.isAnnuity.value = true
-                                expanded = false
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Дифференцированный") },
-                            onClick = {
-                                viewModel.isAnnuity.value = false
-                                expanded = false
-                            }
-                        )
+                        DropdownMenuItem(text = { Text("Аннуитетный") }, onClick = { viewModel.isAnnuity.value = true; expanded = false })
+                        DropdownMenuItem(text = { Text("Дифференцированный") }, onClick = { viewModel.isAnnuity.value = false; expanded = false })
                     }
                 }
             }
@@ -141,16 +150,15 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Input Fields
         InputCard(
             label = "Стоимость объекта",
             value = propertyValue,
             onValueChange = { viewModel.updatePropertyValue(it) },
             step = stepChange,
-            isMoney = true
+            isMoney = true,
+            suffix = " руб."
         )
 
-        // Down Payment split block
         Card(
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -164,19 +172,16 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         value = downPayment,
                         onValueChange = { viewModel.updateDownPayment(it) },
                         modifier = Modifier.weight(1f),
-                        isMoney = true
+                        isMoney = true,
+                        suffix = " руб."
                     )
                     if (!isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChange) }) { 
-                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChange) }) { 
-                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChange) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChange) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
                 
@@ -189,31 +194,28 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                         value = percent,
                         onValueChange = { viewModel.updateDownPaymentPercent(it) },
                         modifier = Modifier.weight(1f),
-                        suffix = "%"
+                        suffix = " %"
                     )
                     if (isPercentLocked) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                     }
                     Row {
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent - stepPercent) }) { 
-                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent + stepPercent) }) { 
-                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent - stepPercent) }) { Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent + stepPercent) }) { Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
             }
         }
 
         InputCard(
-            label = "Срок (лет)",
+            label = "Срок",
             value = termYears.toDouble(),
             onValueChange = { viewModel.termYears.value = it.toInt().coerceIn(1, 30) },
             step = 1.0,
             range = 1.0..30.0,
-            isInteger = true
+            isInteger = true,
+            suffix = " " + getYearString(termYears)
         )
 
         InputCard(
@@ -221,7 +223,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             value = interestRate,
             onValueChange = { viewModel.interestRate.value = it },
             step = stepRate,
-            suffix = "%",
+            suffix = " %",
             allowEmpty = true
         )
     }
@@ -299,40 +301,33 @@ fun NumericField(
     val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
     val formatter = if (isMoney) DecimalFormat("#,###", symbols) else if (isInteger) DecimalFormat("#", symbols) else DecimalFormat("0.##", symbols)
     
-    var textValue by remember(value) { mutableStateOf(if (value == 0.0 && allowEmpty) "" else formatter.format(value)) }
+    var textFieldValue by remember(value) {
+        val text = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
+        mutableStateOf(TextFieldValue(text = text, selection = TextRange(text.length)))
+    }
 
     androidx.compose.foundation.text.BasicTextField(
-        value = textValue,
-        onValueChange = { input ->
-            val cleanInput = input.replace(" ", "").replace(",", ".")
+        value = textFieldValue,
+        onValueChange = { newValue ->
+            val cleanInput = newValue.text.replace(" ", "").replace(",", ".")
             if (cleanInput.isEmpty()) {
-                textValue = ""
+                textFieldValue = newValue.copy(text = "")
                 if (allowEmpty) onValueChange(0.0)
             } else if (cleanInput.toDoubleOrNull() != null) {
-                textValue = input
+                textFieldValue = newValue
                 onValueChange(cleanInput.toDouble())
             }
         },
+        singleLine = true,
+        maxLines = 1,
         textStyle = LocalTextStyle.current.copy(
             fontSize = 32.sp, 
             fontWeight = FontWeight.Bold,
-            color = color
+            color = color,
+            textAlign = TextAlign.Start
         ),
+        visualTransformation = remember(suffix) { SuffixTransformation(suffix) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = modifier,
-        decorationBox = { innerTextField ->
-            Row {
-                innerTextField()
-                if (suffix.isNotEmpty()) {
-                    Text(
-                        text = suffix, 
-                        fontSize = 32.sp, 
-                        fontWeight = FontWeight.Bold, 
-                        color = color,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
-            }
-        }
+        modifier = modifier
     )
 }
