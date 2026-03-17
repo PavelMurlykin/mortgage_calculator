@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -38,8 +37,6 @@ fun PaymentScheduleScreen(
     onBack: () -> Unit
 ) {
     val schedule = calculateSchedule(loanAmount, interestRate, years, isAnnuity)
-    val totalPaid = schedule.sumOf { it.payment }
-    val totalInterest = totalPaid - loanAmount
 
     Scaffold(
         topBar = {
@@ -48,14 +45,6 @@ fun PaymentScheduleScreen(
                 navigationIcon = {
                     TextButton(onClick = onBack) {
                         Text("Закрыть", color = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* Settings action */ }) {
-                        Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = { /* Refresh action */ }) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -67,7 +56,7 @@ fun PaymentScheduleScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Summary Card
+            // Summary Card - Simplified
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -80,17 +69,7 @@ fun PaymentScheduleScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Выплачено", fontSize = 14.sp, color = Color.Gray)
-                        Text("из ${String.format("%,.0f", totalPaid)}", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Сэкономлено", fontSize = 14.sp, color = Color.Gray)
-                        Text("${String.format("%,.0f", 0.0)} / 0 мес.", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
+                    Text("Первый платеж", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -99,9 +78,9 @@ fun PaymentScheduleScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Месяц", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = Color.Gray)
-                Text("Платёж", modifier = Modifier.weight(1f), fontSize = 14.sp, color = Color.Gray)
-                Text("Остаток", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = Color.Gray)
+                Text("Месяц", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Платёж", modifier = Modifier.weight(1f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Остаток", modifier = Modifier.weight(1.5f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -117,7 +96,7 @@ fun PaymentScheduleScreen(
                     }
                     items(yearItems) { item ->
                         ScheduleRow(item)
-                        HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.3f))
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
@@ -148,7 +127,7 @@ fun ScheduleRow(item: PaymentScheduleItem) {
             text = String.format("%,.0f", item.remainingBalance),
             modifier = Modifier.weight(1.5f),
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontWeight = FontWeight.Medium
         )
     }

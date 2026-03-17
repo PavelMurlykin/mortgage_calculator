@@ -5,18 +5,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.mortgagecalculator.ui.MortgageViewModel
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController) {
     val propertyValue by viewModel.propertyValue.collectAsState()
@@ -24,11 +32,21 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
     val termYears by viewModel.termYears.collectAsState()
     val interestRate by viewModel.interestRate.collectAsState()
     val isAnnuity by viewModel.isAnnuity.collectAsState()
+    val isPercentLocked by viewModel.isDownPaymentPercentLocked.collectAsState()
 
     val loanAmount by viewModel.loanAmount.collectAsState()
     val monthlyPayment by viewModel.monthlyPayment.collectAsState()
     val totalInterest by viewModel.totalInterest.collectAsState()
+    
     val stepChange by viewModel.stepChange.collectAsState()
+    val stepPercent by viewModel.stepPercent.collectAsState()
+    val stepRate by viewModel.stepRate.collectAsState()
+
+    val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply {
+        groupingSeparator = ' '
+    }
+    val formatter = DecimalFormat("#,###", formatSymbols)
+    val decimalFormatter = DecimalFormat("#,##0.00", formatSymbols)
 
     Column(
         modifier = Modifier
@@ -36,6 +54,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        // Title aligned with other screens
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -47,15 +66,11 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 fontWeight = FontWeight.Bold
             )
             IconButton(onClick = { viewModel.saveCalculation() }) {
-                Icon(
-                    Icons.Default.Save,
-                    contentDescription = "Сохранить",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Icon(Icons.Default.Save, contentDescription = "Сохранить", tint = MaterialTheme.colorScheme.primary)
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Result Card
         Card(
@@ -71,7 +86,7 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
                 ) {
                     Column {
                         Text(
-                            text = String.format("%,.0f", monthlyPayment),
+                            text = decimalFormatter.format(monthlyPayment),
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -87,15 +102,39 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                ResultRow("Сумма кредита", String.format("%,.0f", loanAmount))
-                ResultRow("Сумма процентов", String.format("%,.0f", totalInterest))
+                ResultRow("Сумма кредита", formatter.format(loanAmount))
+                ResultRow("Сумма процентов", formatter.format(totalInterest))
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Тип платежа", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(if (isAnnuity) "Аннуитетный" else "Дифференцированный", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                // Payment type dropdown
+                var expanded by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Тип платежа", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { expanded = true }) {
+                            Text(if (isAnnuity) "Аннуитетный" else "Дифференцированный")
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Аннуитетный") },
+                            onClick = {
+                                viewModel.isAnnuity.value = true
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Дифференцированный") },
+                            onClick = {
+                                viewModel.isAnnuity.value = false
+                                expanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -106,32 +145,84 @@ fun CalculationScreen(viewModel: MortgageViewModel, navController: NavController
         InputCard(
             label = "Стоимость объекта",
             value = propertyValue,
-            onValueChange = { viewModel.propertyValue.value = it },
-            step = stepChange
-        )
-        
-        InputCard(
-            label = "Первоначальный взнос",
-            value = downPayment,
-            onValueChange = { viewModel.downPayment.value = it },
+            onValueChange = { viewModel.updatePropertyValue(it) },
             step = stepChange,
-            percentage = if (propertyValue > 0) (downPayment / propertyValue * 100) else 0.0
+            isMoney = true
         )
+
+        // Down Payment split block
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Первоначальный взнос", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
+                // Rubles
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NumericField(
+                        value = downPayment,
+                        onValueChange = { viewModel.updateDownPayment(it) },
+                        modifier = Modifier.weight(1f),
+                        isMoney = true
+                    )
+                    if (!isPercentLocked) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Row {
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment - stepChange) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { viewModel.updateDownPayment(downPayment + stepChange) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                    }
+                }
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray.copy(alpha = 0.2f))
+                
+                // Percentage
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val percent = if (propertyValue > 0) (downPayment / propertyValue * 100) else 0.0
+                    NumericField(
+                        value = percent,
+                        onValueChange = { viewModel.updateDownPaymentPercent(it) },
+                        modifier = Modifier.weight(1f),
+                        suffix = "%"
+                    )
+                    if (isPercentLocked) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Row {
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent - stepPercent) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { viewModel.updateDownPaymentPercent(percent + stepPercent) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                    }
+                }
+            }
+        }
 
         InputCard(
             label = "Срок (лет)",
             value = termYears.toDouble(),
-            onValueChange = { viewModel.termYears.value = it.toInt().coerceIn(0, 30) },
+            onValueChange = { viewModel.termYears.value = it.toInt().coerceIn(1, 30) },
             step = 1.0,
-            range = 0.0..30.0
+            range = 1.0..30.0,
+            isInteger = true
         )
 
         InputCard(
             label = "Процентная ставка",
             value = interestRate,
             onValueChange = { viewModel.interestRate.value = it },
-            step = 0.01,
-            suffix = "%"
+            step = stepRate,
+            suffix = "%",
+            allowEmpty = true
         )
     }
 }
@@ -153,49 +244,39 @@ fun InputCard(
     value: Double,
     onValueChange: (Double) -> Unit,
     step: Double,
-    percentage: Double? = null,
     suffix: String = "",
-    range: ClosedFloatingPointRange<Double>? = null
+    range: ClosedFloatingPointRange<Double>? = null,
+    isMoney: Boolean = false,
+    isInteger: Boolean = false,
+    allowEmpty: Boolean = false
 ) {
-    var textValue by remember(value) { mutableStateOf(String.format("%.2f", value).replace(",", ".")) }
-
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    BasicTextField(
-                        value = textValue,
-                        onValueChange = {
-                            textValue = it
-                            it.toDoubleOrNull()?.let { d -> onValueChange(d) }
-                        },
-                        textStyle = LocalTextStyle.current.copy(
-                            fontSize = 24.sp, 
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (percentage != null) {
-                            Text(String.format(", %.1f %%", percentage), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { onValueChange((value - step).let { if (range != null) it.coerceIn(range) else it.coerceAtLeast(0.0) }) }) {
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                NumericField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier.weight(1f),
+                    isMoney = isMoney,
+                    isInteger = isInteger,
+                    suffix = suffix,
+                    allowEmpty = allowEmpty
+                )
+                Row {
+                    IconButton(onClick = { 
+                        val newVal = (value - step).let { if (range != null) it.coerceIn(range) else it.coerceAtLeast(0.0) }
+                        onValueChange(newVal)
+                    }) {
                         Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { onValueChange((value + step).let { if (range != null) it.coerceIn(range) else it }) }) {
+                    IconButton(onClick = { 
+                        val newVal = (value + step).let { if (range != null) it.coerceIn(range) else it }
+                        onValueChange(newVal)
+                    }) {
                         Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -205,18 +286,53 @@ fun InputCard(
 }
 
 @Composable
-fun BasicTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    textStyle: androidx.compose.ui.text.TextStyle,
-    keyboardOptions: KeyboardOptions,
-    modifier: Modifier
+fun NumericField(
+    value: Double,
+    onValueChange: (Double) -> Unit,
+    modifier: Modifier = Modifier,
+    isMoney: Boolean = false,
+    isInteger: Boolean = false,
+    suffix: String = "",
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    allowEmpty: Boolean = false
 ) {
+    val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
+    val formatter = if (isMoney) DecimalFormat("#,###", symbols) else if (isInteger) DecimalFormat("#", symbols) else DecimalFormat("0.##", symbols)
+    
+    var textValue by remember(value) { mutableStateOf(if (value == 0.0 && allowEmpty) "" else formatter.format(value)) }
+
     androidx.compose.foundation.text.BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        textStyle = textStyle,
-        keyboardOptions = keyboardOptions,
-        modifier = modifier
+        value = textValue,
+        onValueChange = { input ->
+            val cleanInput = input.replace(" ", "").replace(",", ".")
+            if (cleanInput.isEmpty()) {
+                textValue = ""
+                if (allowEmpty) onValueChange(0.0)
+            } else if (cleanInput.toDoubleOrNull() != null) {
+                textValue = input
+                onValueChange(cleanInput.toDouble())
+            }
+        },
+        textStyle = LocalTextStyle.current.copy(
+            fontSize = 32.sp, 
+            fontWeight = FontWeight.Bold,
+            color = color
+        ),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        modifier = modifier,
+        decorationBox = { innerTextField ->
+            Row {
+                innerTextField()
+                if (suffix.isNotEmpty()) {
+                    Text(
+                        text = suffix, 
+                        fontSize = 32.sp, 
+                        fontWeight = FontWeight.Bold, 
+                        color = color,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
+        }
     )
 }

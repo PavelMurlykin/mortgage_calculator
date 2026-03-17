@@ -15,22 +15,51 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     private val dao = database.mortgageDao()
     private val settingsManager = SettingsManager(application)
 
+    // Saved Calculations
+    val savedCalculations: StateFlow<List<MortgageEntity>> = dao.getAllCalculations()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Settings
     val stepChange = settingsManager.stepChange.stateIn(viewModelScope, SharingStarted.Eagerly, 100000.0)
     val defaultIsAnnuity = settingsManager.defaultIsAnnuity.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val stepPercent = settingsManager.stepPercent.stateIn(viewModelScope, SharingStarted.Eagerly, 0.1)
+    val stepRate = settingsManager.stepRate.stateIn(viewModelScope, SharingStarted.Eagerly, 0.1)
 
-    // Calculation Inputs
-    var propertyValue = MutableStateFlow(6600000.0)
-    var downPayment = MutableStateFlow(1700000.0)
-    var termYears = MutableStateFlow(30)
-    var interestRate = MutableStateFlow(3.5)
-    var isAnnuity = MutableStateFlow(true)
+    // Calculation Inputs (Initialized with defaults, updated from DataStore in init)
+    val propertyValue = MutableStateFlow(6600000.0)
+    val downPayment = MutableStateFlow(1320000.0)
+    val termYears = MutableStateFlow(30)
+    val interestRate = MutableStateFlow(12.0)
+    val isAnnuity = MutableStateFlow(true)
+    val isDownPaymentPercentLocked = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
-            defaultIsAnnuity.collect {
-                isAnnuity.value = it
-            }
+            // Restore state
+            settingsManager.propertyValue.first().let { propertyValue.value = it }
+            settingsManager.downPayment.first().let { downPayment.value = it }
+            settingsManager.termYears.first().let { termYears.value = it }
+            settingsManager.interestRate.first().let { interestRate.value = it }
+            settingsManager.isAnnuity.first().let { isAnnuity.value = it }
+            settingsManager.isDownPaymentPercentLocked.first().let { isDownPaymentPercentLocked.value = it }
+            
+            // Auto-save changes using combine with array handling for 6+ flows
+            combine(
+                propertyValue, 
+                downPayment, 
+                termYears, 
+                interestRate, 
+                isAnnuity, 
+                isDownPaymentPercentLocked
+            ) { args ->
+                val p = args[0] as Double
+                val d = args[1] as Double
+                val t = args[2] as Int
+                val r = args[3] as Double
+                val a = args[4] as Boolean
+                val l = args[5] as Boolean
+                settingsManager.saveInputs(p, d, t, r, a, l)
+            }.collect()
         }
     }
 
@@ -47,8 +76,6 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
             if (monthlyRate == 0.0) loan / months
             else loan * (monthlyRate * (1 + monthlyRate).pow(months)) / ((1 + monthlyRate).pow(months) - 1)
         } else {
-            // For differentiated, first payment is shown as reference or we can return a range/avg. 
-            // Usually, first payment is (Loan / months) + (Loan * monthlyRate)
             (loan / months) + (loan * monthlyRate)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
@@ -71,8 +98,25 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
-    // Database Actions
-    val savedCalculations = dao.getAllCalculations().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    // Actions
+    fun updatePropertyValue(value: Double) {
+        val oldProp = propertyValue.value
+        propertyValue.value = value
+        if (isDownPaymentPercentLocked.value) {
+            val percent = if (oldProp > 0) downPayment.value / oldProp else 0.0
+            downPayment.value = value * percent
+        }
+    }
+
+    fun updateDownPayment(value: Double) {
+        downPayment.value = value
+        isDownPaymentPercentLocked.value = false
+    }
+
+    fun updateDownPaymentPercent(percent: Double) {
+        downPayment.value = propertyValue.value * (percent / 100)
+        isDownPaymentPercentLocked.value = true
+    }
 
     fun saveCalculation() {
         viewModelScope.launch {
@@ -89,17 +133,12 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun deleteCalculation(id: Int) {
-        viewModelScope.launch {
-            dao.deleteCalculation(id)
-        }
+        viewModelScope.launch { dao.deleteCalculation(id) }
     }
 
-    // Settings Update
-    fun updateStepChange(step: Double) {
-        viewModelScope.launch { settingsManager.updateStepChange(step) }
-    }
-
-    fun updateDefaultPaymentType(annuity: Boolean) {
-        viewModelScope.launch { settingsManager.updateDefaultPaymentType(annuity) }
-    }
+    // Settings
+    fun updateStepChange(step: Double) { viewModelScope.launch { settingsManager.updateStepChange(step) } }
+    fun updateDefaultPaymentType(annuity: Boolean) { viewModelScope.launch { settingsManager.updateDefaultPaymentType(annuity) } }
+    fun updateStepPercent(step: Double) { viewModelScope.launch { settingsManager.updateStepPercent(step) } }
+    fun updateStepRate(step: Double) { viewModelScope.launch { settingsManager.updateStepRate(step) } }
 }

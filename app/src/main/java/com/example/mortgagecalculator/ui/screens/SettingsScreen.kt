@@ -20,6 +20,8 @@ import com.example.mortgagecalculator.ui.MortgageViewModel
 fun SettingsScreen(viewModel: MortgageViewModel) {
     val stepChange by viewModel.stepChange.collectAsState()
     val defaultIsAnnuity by viewModel.defaultIsAnnuity.collectAsState()
+    val stepPercent by viewModel.stepPercent.collectAsState()
+    val stepRate by viewModel.stepRate.collectAsState()
     
     var stepText by remember(stepChange) { mutableStateOf(String.format("%.0f", stepChange)) }
 
@@ -47,7 +49,7 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Шаг изменения",
+                    text = "Шаг изменения суммы",
                     fontSize = 16.sp,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -67,16 +69,20 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
                     suffix = { Text("₽") },
                     singleLine = true
                 )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Text(
-                    text = "Шаг изменения стоимости объекта и первоначального взноса",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Step for Percent and Rate
+        StepSelectionCard(
+            title = "Шаг изменения взноса (%) и ставки (%)",
+            currentStep = stepPercent,
+            onStepSelected = { 
+                viewModel.updateStepPercent(it)
+                viewModel.updateStepRate(it)
+            }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -112,6 +118,37 @@ fun SettingsScreen(viewModel: MortgageViewModel) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp)
         )
+    }
+}
+
+@Composable
+fun StepSelectionCard(title: String, currentStep: Double, onStepSelected: (Double) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(title, fontSize = 16.sp, modifier = Modifier.padding(bottom = 8.dp))
+            val options = listOf(1.0, 0.1, 0.01)
+            Row(Modifier.selectableGroup()) {
+                options.forEach { option ->
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .selectable(
+                                selected = (currentStep == option),
+                                onClick = { onStepSelected(option) },
+                                role = Role.RadioButton
+                            )
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = (currentStep == option), onClick = null)
+                        Text(text = "$option%", modifier = Modifier.padding(start = 4.dp), fontSize = 14.sp)
+                    }
+                }
+            }
+        }
     }
 }
 
