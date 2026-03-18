@@ -120,6 +120,11 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                         val propertyAmount = if (isMonthlyType) propertyValue else calculatedPropertyValue
                         
                         Text(
+                            text = if (isMonthlyType) "Ежемесячный платеж" else "Стоимость объекта",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
                             text = if (isMonthlyType) {
                                 decimalFormatter.format(resultAmount) + " руб."
                             } else {
@@ -128,11 +133,6 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = if (isMonthlyType) "Ежемесячный платеж" else "Стоимость объекта",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     TextButton(onClick = {
