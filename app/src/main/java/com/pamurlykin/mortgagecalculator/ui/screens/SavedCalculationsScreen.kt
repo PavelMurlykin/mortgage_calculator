@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,6 +29,7 @@ fun SavedCalculationsScreen(mortgageViewModel: MortgageViewModel, navController:
         groupingSeparator = ' '
     }
     val integerFormatter = DecimalFormat("#,###", formatSymbols)
+    val rateFormatter = DecimalFormat("0.##", formatSymbols) // Исправлено округление для ставки
 
     Column(
         modifier = Modifier
@@ -67,12 +69,12 @@ fun SavedCalculationsScreen(mortgageViewModel: MortgageViewModel, navController:
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "${integerFormatter.format(calculation.propertyValue)} руб.",
+                                    text = "${integerFormatter.format(calculation.propertyValue)} ₽",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "${calculation.interestRate}% на ${calculation.termYears} " + formatYearsLabel(calculation.termYears),
+                                    text = "${rateFormatter.format(calculation.interestRate)}% на ${calculation.termYears} " + formatYearsLabel(calculation.termYears),
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -82,12 +84,26 @@ fun SavedCalculationsScreen(mortgageViewModel: MortgageViewModel, navController:
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            IconButton(onClick = { mortgageViewModel.deleteSavedCalculation(calculation.id) }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Удалить",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                            Row {
+                                IconButton(onClick = { 
+                                    mortgageViewModel.loadCalculation(calculation)
+                                    navController.navigate("calculation") {
+                                        popUpTo("calculation") { inclusive = true }
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Редактировать",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                IconButton(onClick = { mortgageViewModel.deleteSavedCalculation(calculation.id) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Удалить",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
                     }

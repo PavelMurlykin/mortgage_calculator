@@ -87,7 +87,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -100,7 +100,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Result Card
         Card(
@@ -108,7 +108,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -126,9 +126,9 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                         )
                         Text(
                             text = if (isMonthlyType) {
-                                decimalFormatter.format(resultAmount) + " руб."
+                                decimalFormatter.format(resultAmount) + " ₽"
                             } else {
-                                integerFormatter.format(propertyAmount) + " руб."
+                                integerFormatter.format(propertyAmount) + " ₽"
                             },
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
@@ -142,11 +142,11 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                ResultRow("Сумма кредита", integerFormatter.format(currentLoanAmount) + " руб.")
+                Spacer(modifier = Modifier.height(8.dp))
+                ResultRow("Сумма кредита", integerFormatter.format(currentLoanAmount) + " ₽")
                 
                 var isPaymentMenuExpanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -178,7 +178,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Toggle Input Field based on Calculation Type
         if (calculationType == CalculationType.MONTHLY_PAYMENT) {
@@ -188,7 +188,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                 onValueChange = { mortgageViewModel.updatePropertyValue(it) },
                 step = stepChangeAmount,
                 isMoney = true,
-                suffix = " руб.",
+                suffix = " ₽",
                 range = 1.0..1000000000.0
             )
         } else {
@@ -198,18 +198,18 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                 onValueChange = { mortgageViewModel.updateManualMonthlyPayment(it) },
                 step = stepMonthlyPayment,
                 isMoney = true,
-                suffix = " руб.",
+                suffix = " ₽",
                 range = 1.0..10000000.0
             )
         }
 
         Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             val currentPropertyValue = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
             
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(8.dp)) {
                 Text("Первоначальный взнос", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 
                 // Rubles input
@@ -219,7 +219,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                         onValueChange = { mortgageViewModel.updateDownPayment(it) },
                         modifier = Modifier.weight(1f),
                         isMoney = true,
-                        suffix = " руб.",
+                        suffix = " ₽",
                         range = if (calculationType == CalculationType.MONTHLY_PAYMENT) 0.0..currentPropertyValue else 0.0..1000000000.0
                     )
                     if (calculationType == CalculationType.MONTHLY_PAYMENT && !isPercentLocked) {
@@ -236,7 +236,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                     }
                 }
                 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.LightGray.copy(alpha = 0.2f))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.LightGray.copy(alpha = 0.2f))
                 
                 // Percentage input
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -294,7 +294,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
 @Composable
 fun ResultRow(label: String, valueText: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -315,10 +315,10 @@ fun InputCard(
     allowEmpty: Boolean = false
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(8.dp)) {
             Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NumericField(

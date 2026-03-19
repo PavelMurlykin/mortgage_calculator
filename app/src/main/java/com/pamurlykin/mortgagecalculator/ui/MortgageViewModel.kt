@@ -199,6 +199,18 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { settingsManager.updateCalculationType(newType) }
     }
 
+    fun loadCalculation(calculation: MortgageEntity) {
+        propertyValue.value = calculation.propertyValue
+        downPayment.value = calculation.downPayment
+        termYears.value = calculation.termYears
+        interestRate.value = calculation.interestRate
+        isAnnuity.value = calculation.isAnnuity
+        // Update percentages and locked state based on loaded values
+        if (calculation.propertyValue > 0) {
+            downPaymentPercent.value = (calculation.downPayment / calculation.propertyValue * 100.0)
+        }
+    }
+
     fun saveCalculation() {
         viewModelScope.launch {
             val currentProperty = if (calculationType.value == CalculationType.MONTHLY_PAYMENT) propertyValue.value else calculatedPropertyValue.value

@@ -35,6 +35,12 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
         mutableStateOf(String.format("%.0f", stepMonthlyPayment)) 
     }
 
+    val calculationDescription = if (calculationType == CalculationType.MONTHLY_PAYMENT) {
+        "Стандартный расчет ежемесячного платежа для ипотеченого кредита."
+    } else {
+        "Позволяет оценить максимальную стоимость объекта для ваших финансовых возможностей."
+    }
+
     val paymentDescription = if (defaultIsAnnuity) {
         "Платеж остаётся неизменным до конца срока кредитования. И сумма на погашение тела кредита, и процентная часть всегда разные"
     } else {
@@ -79,8 +85,14 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
                 )
             }
         }
+        Text(
+            text = calculationDescription,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(16.dp)
+        )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Step for Property/Downpayment
         Card(
@@ -241,21 +253,25 @@ fun StepSelectionCard(title: String, currentStep: Double, onStepSelected: (Doubl
 }
 
 @Composable
-fun SettingsOptionRow(text: String, selected: Boolean, onClick: () -> Unit) {
+fun SettingsOptionRow(text: String, description: String? = null, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .height(56.dp)
             .selectable(
                 selected = selected,
                 onClick = onClick,
                 role = Role.RadioButton
             )
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = text, fontSize = 16.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = text, fontSize = 16.sp)
+            if (description != null) {
+                Text(text = description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         if (selected) {
             Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
