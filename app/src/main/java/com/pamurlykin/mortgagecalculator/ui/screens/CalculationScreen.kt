@@ -30,6 +30,7 @@ import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
+import kotlin.math.abs
 
 fun formatYearsLabel(years: Int): String {
     val mod10 = years % 10
@@ -365,23 +366,64 @@ fun NumericField(
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
     val formatter = if (isMoney) DecimalFormat("#,###", formatSymbols) else if (isInteger) DecimalFormat("#", formatSymbols) else DecimalFormat("0.##", formatSymbols)
     
-    var textFieldValueState by remember(value) {
+    // Важно: убрали (value) из remember, чтобы курсор не сбрасывался при внешних обновлениях
+    var textFieldValueState by remember {
         val formattedText = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
         mutableStateOf(TextFieldValue(text = formattedText, selection = TextRange(formattedText.length)))
+    }
+
+    // Синхронизация состояния только при значимом изменении значения (например, загрузка из памяти)
+    LaunchedEffect(value) {
+        val currentDouble = textFieldValueState.text.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
+        if (abs(currentDouble - value) > 0.0001) {
+            val formattedText = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
+            textFieldValueState = TextFieldValue(text = formattedText, selection = TextRange(formattedText.length))
+        }
     }
 
     androidx.compose.foundation.text.BasicTextField(
         value = textFieldValueState,
         onValueChange = { newValue ->
-            val cleanedInputText = newValue.text.replace(" ", "").replace(",", ".")
+            val oldText = textFieldValueState.text
+            val newTextRaw = newValue.text
+            val cleanedInputText = newTextRaw.replace(" ", "").replace(",", ".")
+            
             if (cleanedInputText.isEmpty()) {
                 textFieldValueState = newValue.copy(text = "")
                 if (allowEmpty) onValueChange(0.0)
-            } else if (cleanedInputText.toDoubleOrNull() != null) {
-                val inputDoubleValue = cleanedInputText.toDouble()
+                return@BasicTextField
+            }
+            
+            val inputDoubleValue = cleanedInputText.toDoubleOrNull()
+            if (inputDoubleValue != null) {
                 val validatedValue = if (range != null) inputDoubleValue.coerceIn(range) else inputDoubleValue
+                val formattedNewText = formatter.format(validatedValue)
                 
-                textFieldValueState = newValue
+                // Рассчитываем количество значащих символов до курсора в новом вводе пользователя
+                val cursorInNewRaw = newValue.selection.start
+                val significantCharsBeforeCursor = newTextRaw.take(cursorInNewRaw).count { it.isDigit() || it == '.' }
+                
+                // Находим новую позицию в отформатированной строке по количеству значащих символов
+                var newCursorPos = 0
+                var sigFound = 0
+                while (newCursorPos < formattedNewText.length && sigFound < significantCharsBeforeCursor) {
+                    if (formattedNewText[newCursorPos].isDigit() || formattedNewText[newCursorPos] == '.') {
+                        sigFound++
+                    }
+                    newCursorPos++
+                }
+                
+                // Правило: если курсор попал на пробел при добавлении цифр - прыгаем через него
+                if (newCursorPos < formattedNewText.length && formattedNewText[newCursorPos] == ' ') {
+                    if (newTextRaw.length >= oldText.length) {
+                        newCursorPos++
+                    }
+                }
+
+                textFieldValueState = TextFieldValue(
+                    text = formattedNewText,
+                    selection = TextRange(newCursorPos.coerceIn(0, formattedNewText.length))
+                )
                 onValueChange(validatedValue)
             }
         },
