@@ -32,10 +32,12 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     val propertyValue = MutableStateFlow(6600000.0)
     val downPayment = MutableStateFlow(1320000.0)
     val downPaymentPercent = MutableStateFlow(20.0)
+    val termMonths = MutableStateFlow(360)
     val termYears = MutableStateFlow(30)
     val interestRate = MutableStateFlow(12.0)
     val isAnnuity = MutableStateFlow(true)
     val isDownPaymentPercentLocked = MutableStateFlow(false)
+    val isTermYearsLocked = MutableStateFlow(true)
     val manualMonthlyPayment = MutableStateFlow(50000.0)
 
     init {
@@ -43,7 +45,10 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
             settingsManager.propertyValue.first().let { value -> propertyValue.value = value.coerceAtLeast(1.0) }
             settingsManager.downPayment.first().let { value -> downPayment.value = value.coerceAtLeast(0.0) }
             settingsManager.downPaymentPercent.first().let { value -> downPaymentPercent.value = value.coerceIn(0.0, 100.0) }
-            settingsManager.termYears.first().let { value -> termYears.value = value.coerceIn(0, 30) }
+            settingsManager.termYears.first().let { value -> 
+                termYears.value = value.coerceIn(0, 30)
+                termMonths.value = value * 12
+            }
             settingsManager.interestRate.first().let { value -> interestRate.value = value.coerceIn(0.0, 100.0) }
             settingsManager.isAnnuity.first().let { value -> isAnnuity.value = value }
             settingsManager.isDownPaymentPercentLocked.first().let { value -> isDownPaymentPercentLocked.value = value }
@@ -83,38 +88,37 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     }
 
     // Calculation Outputs
-    val calculatedMonthlyPayment = combine(propertyValue, downPayment, termYears, interestRate, isAnnuity) { property, down, years, rate, annuity ->
+    val calculatedMonthlyPayment = combine(propertyValue, downPayment, termMonths, interestRate, isAnnuity) { property, down, months, rate, annuity ->
         val loanAmount = (property - down).coerceAtLeast(0.0)
-        if (loanAmount <= 0 || years <= 0) return@combine 0.0
+        if (loanAmount <= 0 || months <= 0) return@combine 0.0
         val monthlyRate = rate / 100 / 12
-        val monthsCount = years * 12
         if (annuity) {
-            if (monthlyRate == 0.0) loanAmount / monthsCount
-            else loanAmount * (monthlyRate * (1 + monthlyRate).pow(monthsCount)) / ((1 + monthlyRate).pow(monthsCount) - 1)
+            if (monthlyRate == 0.0) loanAmount / months
+            else loanAmount * (monthlyRate * (1 + monthlyRate).pow(months)) / ((1 + monthlyRate).pow(months) - 1)
         } else {
-            (loanAmount / monthsCount) + (loanAmount * monthlyRate)
+            (loanAmount / months) + (loanAmount * monthlyRate)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     val calculatedPropertyValue = combine(
         manualMonthlyPayment, 
-        termYears, 
+        termMonths, 
         interestRate, 
         downPayment, 
         downPaymentPercent, 
         isAnnuity
     ) { arguments ->
         val paymentAmount = arguments[0] as Double
-        val yearsCount = arguments[1] as Int
+        val monthsCount = arguments[1] as Int
         val annualRate = arguments[2] as Double
         val downPaymentAmount = arguments[3] as Double
         val downPaymentPercentage = arguments[4] as Double
         val isAnnuityType = arguments[5] as Boolean
 
-        if (paymentAmount <= 0 || yearsCount <= 0) return@combine downPaymentAmount
+        if (paymentAmount <= 0 || monthsCount <= 0) return@combine downPaymentAmount
         
         // 1. Max loan based on desired payment
-        val loanFromPayment = calculateLoanFromPayment(paymentAmount, yearsCount, annualRate, isAnnuityType)
+        val loanFromPayment = calculateLoanFromPayment(paymentAmount, monthsCount, annualRate, isAnnuityType)
         val propertyFromPayment = loanFromPayment + downPaymentAmount
         
         // 2. Max property value based on minimum down payment percent requirement
@@ -168,20 +172,29 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun calculateLoanFromPayment(monthlyPayment: Double, years: Int, annualRate: Double, isAnnuity: Boolean): Double {
-        if (monthlyPayment <= 0 || years <= 0) return 0.0
+    private fun calculateLoanFromPayment(monthlyPayment: Double, months: Int, annualRate: Double, isAnnuity: Boolean): Double {
+        if (monthlyPayment <= 0 || months <= 0) return 0.0
         val monthlyRate = annualRate / 100 / 12
-        val monthsCount = years * 12
         return if (isAnnuity) {
-            if (monthlyRate == 0.0) monthlyPayment * monthsCount
-            else monthlyPayment * ((1 + monthlyRate).pow(monthsCount) - 1) / (monthlyRate * (1 + monthlyRate).pow(monthsCount))
+            if (monthlyRate == 0.0) monthlyPayment * months
+            else monthlyPayment * ((1 + monthlyRate).pow(months) - 1) / (monthlyRate * (1 + monthlyRate).pow(months))
         } else {
-            monthlyPayment / (1.0 / monthsCount + monthlyRate)
+            monthlyPayment / (1.0 / months + monthlyRate)
         }
     }
 
     fun updateTermYears(newYears: Int) {
-        termYears.value = newYears.coerceIn(0, 30)
+        val validatedYears = newYears.coerceIn(0, 30)
+        termYears.value = validatedYears
+        termMonths.value = validatedYears * 12
+        isTermYearsLocked.value = true
+    }
+
+    fun updateTermMonths(newMonths: Int) {
+        val validatedMonths = newMonths.coerceIn(0, 360)
+        termMonths.value = validatedMonths
+        termYears.value = validatedMonths / 12
+        isTermYearsLocked.value = false
     }
 
     fun updateInterestRate(newRate: Double) {
@@ -203,9 +216,9 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         propertyValue.value = calculation.propertyValue
         downPayment.value = calculation.downPayment
         termYears.value = calculation.termYears
+        termMonths.value = calculation.termYears * 12
         interestRate.value = calculation.interestRate
         isAnnuity.value = calculation.isAnnuity
-        // Update percentages and locked state based on loaded values
         if (calculation.propertyValue > 0) {
             downPaymentPercent.value = (calculation.downPayment / calculation.propertyValue * 100.0)
         }

@@ -63,6 +63,8 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
     val downPayment by mortgageViewModel.downPayment.collectAsState()
     val downPaymentPercent by mortgageViewModel.downPaymentPercent.collectAsState()
     val termYears by mortgageViewModel.termYears.collectAsState()
+    val termMonths by mortgageViewModel.termMonths.collectAsState()
+    val isTermYearsLocked by mortgageViewModel.isTermYearsLocked.collectAsState()
     val interestRate by mortgageViewModel.interestRate.collectAsState()
     val isAnnuity by mortgageViewModel.isAnnuity.collectAsState()
     val isPercentLocked by mortgageViewModel.isDownPaymentPercentLocked.collectAsState()
@@ -137,7 +139,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                         )
                     }
                     TextButton(onClick = {
-                        navController.navigate("schedule/${currentLoanAmount}/${interestRate}/${termYears}/${isAnnuity}")
+                        navController.navigate("schedule/${currentLoanAmount}/${interestRate}/${termMonths}/${isAnnuity}")
                     }) {
                         Text("График >", color = MaterialTheme.colorScheme.primary)
                     }
@@ -270,15 +272,62 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             }
         }
 
-        InputCard(
-            label = "Срок",
-            value = termYears.toDouble(),
-            onValueChange = { mortgageViewModel.updateTermYears(it.toInt()) },
-            step = 1.0,
-            range = 0.0..30.0,
-            isInteger = true,
-            suffix = " " + formatYearsLabel(termYears)
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(8.dp)) {
+                Text("Срок", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
+                // Years input
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NumericField(
+                        value = termYears.toDouble(),
+                        onValueChange = { mortgageViewModel.updateTermYears(it.toInt()) },
+                        modifier = Modifier.weight(1f),
+                        isInteger = true,
+                        suffix = " " + formatYearsLabel(termYears)
+                    )
+                    if (isTermYearsLocked) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Row {
+                        IconButton(onClick = { mortgageViewModel.updateTermYears(termYears - 1) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { mortgageViewModel.updateTermYears(termYears + 1) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                    }
+                }
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.LightGray.copy(alpha = 0.2f))
+                
+                // Months input
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NumericField(
+                        value = termMonths.toDouble(),
+                        onValueChange = { mortgageViewModel.updateTermMonths(it.toInt()) },
+                        modifier = Modifier.weight(1f),
+                        isInteger = true,
+                        suffix = " мес."
+                    )
+                    if (!isTermYearsLocked) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    Row {
+                        IconButton(onClick = { mortgageViewModel.updateTermMonths(termMonths - 1) }) { 
+                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                        IconButton(onClick = { mortgageViewModel.updateTermMonths(termMonths + 1) }) { 
+                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                        }
+                    }
+                }
+            }
+        }
 
         InputCard(
             label = "Процентная ставка",
@@ -366,13 +415,11 @@ fun NumericField(
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
     val formatter = if (isMoney) DecimalFormat("#,###", formatSymbols) else if (isInteger) DecimalFormat("#", formatSymbols) else DecimalFormat("0.##", formatSymbols)
     
-    // Важно: убрали (value) из remember, чтобы курсор не сбрасывался при внешних обновлениях
     var textFieldValueState by remember {
         val formattedText = if (value == 0.0 && allowEmpty) "" else formatter.format(value)
         mutableStateOf(TextFieldValue(text = formattedText, selection = TextRange(formattedText.length)))
     }
 
-    // Синхронизация состояния только при значимом изменении значения (например, загрузка из памяти)
     LaunchedEffect(value) {
         val currentDouble = textFieldValueState.text.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
         if (abs(currentDouble - value) > 0.0001) {
@@ -399,11 +446,9 @@ fun NumericField(
                 val validatedValue = if (range != null) inputDoubleValue.coerceIn(range) else inputDoubleValue
                 val formattedNewText = formatter.format(validatedValue)
                 
-                // Рассчитываем количество значащих символов до курсора в новом вводе пользователя
                 val cursorInNewRaw = newValue.selection.start
                 val significantCharsBeforeCursor = newTextRaw.take(cursorInNewRaw).count { it.isDigit() || it == '.' }
                 
-                // Находим новую позицию в отформатированной строке по количеству значащих символов
                 var newCursorPos = 0
                 var sigFound = 0
                 while (newCursorPos < formattedNewText.length && sigFound < significantCharsBeforeCursor) {
@@ -413,7 +458,6 @@ fun NumericField(
                     newCursorPos++
                 }
                 
-                // Правило: если курсор попал на пробел при добавлении цифр - прыгаем через него
                 if (newCursorPos < formattedNewText.length && formattedNewText[newCursorPos] == ' ') {
                     if (newTextRaw.length >= oldText.length) {
                         newCursorPos++

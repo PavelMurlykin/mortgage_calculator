@@ -41,12 +41,12 @@ private val RUSSIAN_MONTHS = listOf(
 fun PaymentScheduleScreen(
     loanAmount: Double,
     interestRate: Double,
-    termYears: Int,
+    termMonths: Int,
     isAnnuity: Boolean,
     onBack: () -> Unit
 ) {
-    val paymentSchedule = remember(loanAmount, interestRate, termYears, isAnnuity) {
-        calculatePaymentSchedule(loanAmount, interestRate, termYears, isAnnuity)
+    val paymentSchedule = remember(loanAmount, interestRate, termMonths, isAnnuity) {
+        calculatePaymentSchedule(loanAmount, interestRate, termMonths, isAnnuity)
     }
     
     val groupedSchedule = remember(paymentSchedule) {
@@ -214,14 +214,13 @@ fun PaymentRow(paymentItem: PaymentItem, formatter: DecimalFormat) {
 private fun calculatePaymentSchedule(
     loanAmount: Double,
     interestRate: Double,
-    termYears: Int,
+    totalMonths: Int,
     isAnnuity: Boolean
 ): List<PaymentItem> {
     val scheduleList = mutableListOf<PaymentItem>()
-    if (loanAmount <= 0 || termYears <= 0) return scheduleList
+    if (loanAmount <= 0 || totalMonths <= 0) return scheduleList
 
     val monthlyInterestRate = interestRate / 100 / 12
-    val totalMonths = termYears * 12
     var remainingBalanceValue = loanAmount
     val startDate = Calendar.getInstance()
 

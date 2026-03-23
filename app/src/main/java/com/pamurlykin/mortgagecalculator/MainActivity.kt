@@ -96,16 +96,16 @@ fun MainAppScreen() {
             composable(AppScreen.SavedCalculations.route) { 
                 SavedCalculationsScreen(mortgageViewModel, navigationController) 
             }
-            composable("schedule/{loanAmount}/{interestRate}/{termYears}/{isAnnuity}") { backStackEntry ->
+            composable("schedule/{loanAmount}/{interestRate}/{termMonths}/{isAnnuity}") { backStackEntry ->
                 val loanAmount = backStackEntry.arguments?.getString("loanAmount")?.toDoubleOrNull() ?: 0.0
                 val interestRate = backStackEntry.arguments?.getString("interestRate")?.toDoubleOrNull() ?: 0.0
-                val termYears = backStackEntry.arguments?.getString("termYears")?.toIntOrNull() ?: 0
+                val termMonths = backStackEntry.arguments?.getString("termMonths")?.toIntOrNull() ?: 0
                 val isAnnuity = backStackEntry.arguments?.getString("isAnnuity")?.toBoolean() ?: true
                 
                 PaymentScheduleScreen(
                     loanAmount = loanAmount, 
                     interestRate = interestRate, 
-                    termYears = termYears, 
+                    termMonths = termMonths,
                     isAnnuity = isAnnuity, 
                     onBack = { navigationController.popBackStack() }
                 )
