@@ -7,8 +7,12 @@ import com.pamurlykin.mortgagecalculator.data.AppDatabase
 import com.pamurlykin.mortgagecalculator.data.CalculationType
 import com.pamurlykin.mortgagecalculator.data.MortgageEntity
 import com.pamurlykin.mortgagecalculator.data.SettingsManager
+import com.pamurlykin.mortgagecalculator.ui.screens.formatYearsLabel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.*
 import kotlin.math.pow
 
 class MortgageViewModel(application: Application) : AndroidViewModel(application) {
@@ -226,16 +230,25 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
 
     fun saveCalculation() {
         viewModelScope.launch {
-            val currentProperty = if (calculationType.value == CalculationType.MONTHLY_PAYMENT) propertyValue.value else calculatedPropertyValue.value
+            val isMonthlyType = calculationType.value == CalculationType.MONTHLY_PAYMENT
+            val currentProperty = if (isMonthlyType) propertyValue.value else calculatedPropertyValue.value
+            
             mortgageDao.insertCalculation(
                 MortgageEntity(
                     propertyValue = currentProperty,
                     downPayment = downPayment.value,
                     termYears = termYears.value,
                     interestRate = interestRate.value,
-                    isAnnuity = isAnnuity.value
+                    isAnnuity = isAnnuity.value,
+                    title = "Сохраненный расчет"
                 )
             )
+        }
+    }
+
+    fun updateCalculationTitle(id: Int, newTitle: String) {
+        viewModelScope.launch {
+            mortgageDao.updateTitle(id, newTitle)
         }
     }
 

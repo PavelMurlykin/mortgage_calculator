@@ -11,5 +11,6 @@ data class MortgageEntity(
     val termYears: Int,
     val interestRate: Double,
     val isAnnuity: Boolean,
+    val title: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )

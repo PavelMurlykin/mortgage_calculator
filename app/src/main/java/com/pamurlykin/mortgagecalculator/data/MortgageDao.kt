@@ -14,6 +14,9 @@ interface MortgageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCalculation(mortgageCalculation: MortgageEntity)
 
+    @Query("UPDATE calculations SET title = :title WHERE id = :id")
+    suspend fun updateTitle(id: Int, title: String)
+
     @Query("DELETE FROM calculations WHERE id = :calculationId")
     suspend fun deleteCalculation(calculationId: Int)
 }
