@@ -74,10 +74,10 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
             settingsManager.isDiscountPercentLocked.first().let { value -> isDiscountPercentLocked.value = value }
 
             combine(
-                propertyValue, downPayment, downPaymentPercent, termYears, interestRate, 
+                listOf(propertyValue, downPayment, downPaymentPercent, termYears, interestRate, 
                 isAnnuity, isDownPaymentPercentLocked, manualMonthlyPayment, 
-                discountAmount, isMarkup, isDiscountPercentLocked
-            ) { args: Array<Any?> ->
+                discountAmount, isMarkup, isDiscountPercentLocked)
+            ) { args ->
                 settingsManager.saveInputs(
                     args[0] as Double, args[1] as Double, args[2] as Double, args[3] as Int,
                     args[4] as Double, args[5] as Boolean, args[6] as Boolean, args[7] as Double,
@@ -93,7 +93,7 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         isMarkup, 
         showDiscountOption, 
         calculationType
-    ) { prop: Double, disc: Double, markup: Boolean, show: Boolean, type: CalculationType ->
+    ) { prop, disc, markup, show, type ->
         MortgageCalculator.calculateFinalPropertyValue(prop, disc, markup, show && type == CalculationType.MONTHLY_PAYMENT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
@@ -103,28 +103,45 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         termMonths, 
         interestRate, 
         isAnnuity
-    ) { property: Double, down: Double, months: Int, rate: Double, annuity: Boolean ->
+    ) { property, down, months, rate, annuity ->
         MortgageCalculator.calculateMonthlyPayment(property - down, rate, months, annuity)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     val calculatedPropertyValue: StateFlow<Double> = combine(
-        manualMonthlyPayment, 
-        interestRate, 
-        termMonths, 
-        isAnnuity, 
-        downPayment
-    ) { payment: Double, rate: Double, months: Int, annuity: Boolean, down: Double ->
-        MortgageCalculator.calculateLoanAmount(payment, rate, months, annuity) + down
+        listOf(manualMonthlyPayment, interestRate, termMonths, isAnnuity, downPayment, downPaymentPercent, isDownPaymentPercentLocked)
+    ) { args ->
+        val payment = args[0] as Double
+        val rate = args[1] as Double
+        val months = args[2] as Int
+        val annuity = args[3] as Boolean
+        val down = args[4] as Double
+        val percent = args[5] as Double
+        val isPercentLocked = args[6] as Boolean
+        
+        val loanAmount = MortgageCalculator.calculateLoanAmount(payment, rate, months, annuity)
+        if (isPercentLocked && percent < 100.0) {
+            loanAmount / (1 - percent / 100.0)
+        } else {
+            loanAmount + down
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     val currentLoanAmount: StateFlow<Double> = combine(
-        propertyValue, 
-        downPayment, 
-        finalPropertyValue, 
-        calculationType
-    ) { prop: Double, down: Double, finalProp: Double, type: CalculationType ->
-        val currentProp = if (type == CalculationType.MONTHLY_PAYMENT) finalProp else prop
-        (currentProp - down).coerceAtLeast(0.0)
+        listOf(propertyValue, downPayment, finalPropertyValue, calculationType, calculatedPropertyValue, manualMonthlyPayment, interestRate, termMonths, isAnnuity)
+    ) { args ->
+        val type = args[3] as CalculationType
+        
+        if (type == CalculationType.MONTHLY_PAYMENT) {
+            val finalProp = args[2] as Double
+            val down = args[1] as Double
+            (finalProp - down).coerceAtLeast(0.0)
+        } else {
+            val payment = args[5] as Double
+            val rate = args[6] as Double
+            val months = args[7] as Int
+            val annuity = args[8] as Boolean
+            MortgageCalculator.calculateLoanAmount(payment, rate, months, annuity)
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     // Actions
@@ -153,15 +170,19 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
 
     fun updateDownPayment(newValue: Double) {
         downPayment.value = newValue.coerceAtLeast(0.0)
-        val currentProp = finalPropertyValue.value
-        if (currentProp > 0) downPaymentPercent.value = (downPayment.value / currentProp * 100.0)
+        if (calculationType.value == CalculationType.MONTHLY_PAYMENT) {
+            val currentProp = finalPropertyValue.value
+            if (currentProp > 0) downPaymentPercent.value = (downPayment.value / currentProp * 100.0)
+        }
         isDownPaymentPercentLocked.value = false
     }
 
     fun updateDownPaymentPercent(newPercentage: Double) {
         val validatedPercentage = newPercentage.coerceIn(0.0, 100.0)
         downPaymentPercent.value = validatedPercentage
-        downPayment.value = finalPropertyValue.value * (validatedPercentage / 100.0)
+        if (calculationType.value == CalculationType.MONTHLY_PAYMENT) {
+            downPayment.value = finalPropertyValue.value * (validatedPercentage / 100.0)
+        }
         isDownPaymentPercentLocked.value = true
     }
 
