@@ -23,6 +23,10 @@ class SettingsManager(private val context: Context) {
 
         val CALCULATION_TYPE_NAME = stringPreferencesKey("calculation_type")
 
+        // Group expansion states
+        val IS_CALCULATION_GROUP_EXPANDED = booleanPreferencesKey("is_calculation_group_expanded")
+        val IS_MODIFIERS_GROUP_EXPANDED = booleanPreferencesKey("is_modifiers_group_expanded")
+
         // Input persistence
         val PROPERTY_VALUE_AMOUNT = doublePreferencesKey("property_value")
         val DOWN_PAYMENT_AMOUNT = doublePreferencesKey("down_payment")
@@ -54,6 +58,13 @@ class SettingsManager(private val context: Context) {
     val calculationType: Flow<CalculationType> = context.settingsDataStore.data.map { preferences ->
         val typeName = preferences[CALCULATION_TYPE_NAME] ?: CalculationType.MONTHLY_PAYMENT.name
         CalculationType.valueOf(typeName)
+    }
+
+    val isCalculationGroupExpanded: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_CALCULATION_GROUP_EXPANDED] ?: true
+    }
+    val isModifiersGroupExpanded: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_MODIFIERS_GROUP_EXPANDED] ?: true
     }
 
     // Input state flows
@@ -115,6 +126,18 @@ class SettingsManager(private val context: Context) {
     suspend fun updateCalculationType(type: CalculationType) {
         context.settingsDataStore.edit { preferences ->
             preferences[CALCULATION_TYPE_NAME] = type.name
+        }
+    }
+
+    suspend fun updateCalculationGroupExpanded(expanded: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[IS_CALCULATION_GROUP_EXPANDED] = expanded
+        }
+    }
+
+    suspend fun updateModifiersGroupExpanded(expanded: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[IS_MODIFIERS_GROUP_EXPANDED] = expanded
         }
     }
 

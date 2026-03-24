@@ -31,6 +31,9 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     val stepInterestRate = settingsManager.stepInterestRate.stateIn(viewModelScope, SharingStarted.Eagerly, 0.1)
     val stepMonthlyPayment = settingsManager.stepMonthlyPayment.stateIn(viewModelScope, SharingStarted.Eagerly, 10000.0)
     val calculationType = settingsManager.calculationType.stateIn(viewModelScope, SharingStarted.Eagerly, CalculationType.MONTHLY_PAYMENT)
+    
+    val isCalculationGroupExpanded = settingsManager.isCalculationGroupExpanded.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val isModifiersGroupExpanded = settingsManager.isModifiersGroupExpanded.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     // Calculation Inputs
     val propertyValue = MutableStateFlow(6600000.0)
@@ -275,5 +278,13 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     
     fun updateStepMonthlyPayment(newStep: Double) { 
         viewModelScope.launch { settingsManager.updateStepMonthlyPayment(newStep) } 
+    }
+
+    fun updateCalculationGroupExpanded(expanded: Boolean) {
+        viewModelScope.launch { settingsManager.updateCalculationGroupExpanded(expanded) }
+    }
+
+    fun updateModifiersGroupExpanded(expanded: Boolean) {
+        viewModelScope.launch { settingsManager.updateModifiersGroupExpanded(expanded) }
     }
 }
