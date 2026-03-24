@@ -60,6 +60,7 @@ class SuffixTransformation(private val suffix: String) : VisualTransformation {
 @Composable
 fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavController) {
     val propertyValue by mortgageViewModel.propertyValue.collectAsState()
+    val finalPropertyValue by mortgageViewModel.finalPropertyValue.collectAsState()
     val downPayment by mortgageViewModel.downPayment.collectAsState()
     val downPaymentPercent by mortgageViewModel.downPaymentPercent.collectAsState()
     val termYears by mortgageViewModel.termYears.collectAsState()
@@ -79,6 +80,12 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
     val stepPercent by mortgageViewModel.stepPercent.collectAsState()
     val stepInterestRate by mortgageViewModel.stepInterestRate.collectAsState()
     val stepMonthlyPayment by mortgageViewModel.stepMonthlyPayment.collectAsState()
+
+    val showDiscountOption by mortgageViewModel.showDiscountOption.collectAsState()
+    val discountAmount by mortgageViewModel.discountAmount.collectAsState()
+    val isMarkup by mortgageViewModel.isMarkup.collectAsState()
+    val discountPercent by mortgageViewModel.discountPercent.collectAsState()
+    val isDiscountPercentLocked by mortgageViewModel.isDiscountPercentLocked.collectAsState()
 
     val formatSymbols = DecimalFormatSymbols(Locale.getDefault()).apply {
         groupingSeparator = ' '
@@ -120,7 +127,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                     Column {
                         val isMonthlyType = calculationType == CalculationType.MONTHLY_PAYMENT
                         val resultAmount = if (isMonthlyType) calculatedMonthlyPayment else manualMonthlyPayment
-                        val propertyAmount = if (isMonthlyType) propertyValue else calculatedPropertyValue
+                        val propertyAmount = if (isMonthlyType) finalPropertyValue else calculatedPropertyValue
                         
                         Text(
                             text = if (isMonthlyType) "Ежемесячный платеж" else "Стоимость объекта",
@@ -128,11 +135,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = if (isMonthlyType) {
-                                decimalFormatter.format(resultAmount) + " ₽"
-                            } else {
-                                integerFormatter.format(propertyAmount) + " ₽"
-                            },
+                            text = integerFormatter.format(resultAmount) + " ₽",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -194,6 +197,92 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                 suffix = " ₽",
                 range = 1.0..1000000000.0
             )
+
+            if (showDiscountOption) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isMarkup) "Удорожание" else "Скидка",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Switch(
+                                checked = isMarkup,
+                                onCheckedChange = { mortgageViewModel.isMarkup.value = it }
+                            )
+                        }
+                        
+                        // Rubles input
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            NumericField(
+                                value = discountAmount,
+                                onValueChange = { mortgageViewModel.updateDiscountAmount(it) },
+                                modifier = Modifier.weight(1f),
+                                isMoney = true,
+                                suffix = " ₽"
+                            )
+                            if (!isDiscountPercentLocked) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Row {
+                                IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount - stepChangeAmount) }) { 
+                                    Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                                IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount + stepChangeAmount) }) { 
+                                    Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                            }
+                        }
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.LightGray.copy(alpha = 0.2f))
+                        
+                        // Percentage input
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            NumericField(
+                                value = discountPercent,
+                                onValueChange = { mortgageViewModel.updateDiscountPercent(it) },
+                                modifier = Modifier.weight(1f),
+                                suffix = " %"
+                            )
+                            if (isDiscountPercentLocked) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Row {
+                                IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent - stepPercent) }) { 
+                                    Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                                IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent + stepPercent) }) { 
+                                    Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Итоговая стоимость объекта", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                text = integerFormatter.format(finalPropertyValue) + " ₽",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Blue
+                            )
+                        }
+                    }
+                }
+            }
         } else {
             InputCard(
                 label = "Ежемесячный платеж",
@@ -210,7 +299,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            val currentPropertyValue = if (calculationType == CalculationType.MONTHLY_PAYMENT) propertyValue else calculatedPropertyValue
+            val currentPropertyValue = if (calculationType == CalculationType.MONTHLY_PAYMENT) finalPropertyValue else calculatedPropertyValue
             
             Column(modifier = Modifier.padding(8.dp)) {
                 Text("Первоначальный взнос", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

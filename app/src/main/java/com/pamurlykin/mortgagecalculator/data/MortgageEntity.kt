@@ -12,5 +12,9 @@ data class MortgageEntity(
     val interestRate: Double,
     val isAnnuity: Boolean,
     val title: String = "",
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    // New fields for Discount/Markup
+    val discountAmount: Double = 0.0,
+    val isMarkup: Boolean = false,
+    val showDiscount: Boolean = false
 )
