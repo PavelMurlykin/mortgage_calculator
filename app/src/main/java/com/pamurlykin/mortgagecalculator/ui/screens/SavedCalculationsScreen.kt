@@ -104,8 +104,13 @@ fun CalculationCard(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val finalProp = if (calculation.showDiscount) {
+        if (calculation.isMarkup) calculation.propertyValue + calculation.discountAmount 
+        else (calculation.propertyValue - calculation.discountAmount).coerceAtLeast(0.0)
+    } else calculation.propertyValue
+
     val monthlyPayment = calculateMonthlyPayment(
-        propertyValue = calculation.propertyValue,
+        propertyValue = finalProp,
         downPayment = calculation.downPayment,
         termYears = calculation.termYears,
         interestRate = calculation.interestRate,
@@ -181,7 +186,7 @@ fun CalculationCard(
             val valueFontSize = 15.sp
 
             DetailRow("Ежемесячный платеж", "${integerFormatter.format(monthlyPayment)} ₽", labelFontSize, valueFontSize)
-            DetailRow("Стоимость объекта", "${integerFormatter.format(calculation.propertyValue)} ₽", labelFontSize, valueFontSize)
+            DetailRow("Стоимость объекта", "${integerFormatter.format(finalProp)} ₽", labelFontSize, valueFontSize)
             DetailRow("Срок", "${calculation.termYears} ${formatYearsLabel(calculation.termYears)}", labelFontSize, valueFontSize)
             DetailRow("Процентная ставка", "${rateFormatter.format(calculation.interestRate)} %", labelFontSize, valueFontSize)
         }

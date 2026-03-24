@@ -36,6 +36,9 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
     
     val isCalculationExpanded by mortgageViewModel.isCalculationGroupExpanded.collectAsState()
     val isModifiersExpanded by mortgageViewModel.isModifiersGroupExpanded.collectAsState()
+    val isAdditionalExpanded by mortgageViewModel.isAdditionalGroupExpanded.collectAsState()
+
+    val showDiscountOption by mortgageViewModel.showDiscountOption.collectAsState()
 
     var stepAmountText by remember(stepChangeAmount) { 
         mutableStateOf(String.format("%.0f", stepChangeAmount)) 
@@ -144,7 +147,46 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Группа 2: Модификаторы
+        // Группа 2: Дополнительные параметры
+        SettingsGroup(
+            title = "Дополнительные параметры",
+            expanded = isAdditionalExpanded,
+            onExpandChange = { mortgageViewModel.updateAdditionalGroupExpanded(it) }
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Скидка/Удорожание",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Позволяет скорректировать стоимость объекта в меньшую (скидка) или большую (удорожание) сторону.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = showDiscountOption,
+                            onCheckedChange = { mortgageViewModel.updateShowDiscountOption(it) }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Группа 3: Модификаторы
         SettingsGroup(
             title = "Модификаторы",
             expanded = isModifiersExpanded,

@@ -26,6 +26,10 @@ class SettingsManager(private val context: Context) {
         // Group expansion states
         val IS_CALCULATION_GROUP_EXPANDED = booleanPreferencesKey("is_calculation_group_expanded")
         val IS_MODIFIERS_GROUP_EXPANDED = booleanPreferencesKey("is_modifiers_group_expanded")
+        val IS_ADDITIONAL_GROUP_EXPANDED = booleanPreferencesKey("is_additional_group_expanded")
+
+        // Additional params
+        val SHOW_DISCOUNT_OPTION = booleanPreferencesKey("show_discount_option")
 
         // Input persistence
         val PROPERTY_VALUE_AMOUNT = doublePreferencesKey("property_value")
@@ -36,6 +40,11 @@ class SettingsManager(private val context: Context) {
         val IS_ANNUITY_PAYMENT = booleanPreferencesKey("is_annuity")
         val IS_DOWN_PAYMENT_PERCENT_LOCKED = booleanPreferencesKey("is_down_payment_percent_locked")
         val MANUAL_MONTHLY_PAYMENT_AMOUNT = doublePreferencesKey("manual_monthly_payment")
+        
+        // Discount/Markup inputs persistence
+        val DISCOUNT_AMOUNT = doublePreferencesKey("discount_amount")
+        val IS_MARKUP = booleanPreferencesKey("is_markup")
+        val IS_DISCOUNT_PERCENT_LOCKED = booleanPreferencesKey("is_discount_percent_locked")
     }
 
     val stepChangeAmount: Flow<Double> = context.settingsDataStore.data.map { preferences ->
@@ -66,6 +75,13 @@ class SettingsManager(private val context: Context) {
     val isModifiersGroupExpanded: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
         preferences[IS_MODIFIERS_GROUP_EXPANDED] ?: true
     }
+    val isAdditionalGroupExpanded: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_ADDITIONAL_GROUP_EXPANDED] ?: false
+    }
+
+    val showDiscountOption: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[SHOW_DISCOUNT_OPTION] ?: false
+    }
 
     // Input state flows
     val propertyValue: Flow<Double> = context.settingsDataStore.data.map { preferences ->
@@ -91,6 +107,16 @@ class SettingsManager(private val context: Context) {
     }
     val manualMonthlyPayment: Flow<Double> = context.settingsDataStore.data.map { preferences ->
         preferences[MANUAL_MONTHLY_PAYMENT_AMOUNT] ?: 50000.0
+    }
+    
+    val discountAmount: Flow<Double> = context.settingsDataStore.data.map { preferences ->
+        preferences[DISCOUNT_AMOUNT] ?: 0.0
+    }
+    val isMarkup: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_MARKUP] ?: false
+    }
+    val isDiscountPercentLocked: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_DISCOUNT_PERCENT_LOCKED] ?: false
     }
 
     suspend fun updateStepChangeAmount(step: Double) {
@@ -141,6 +167,18 @@ class SettingsManager(private val context: Context) {
         }
     }
 
+    suspend fun updateAdditionalGroupExpanded(expanded: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[IS_ADDITIONAL_GROUP_EXPANDED] = expanded
+        }
+    }
+
+    suspend fun updateShowDiscountOption(show: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[SHOW_DISCOUNT_OPTION] = show
+        }
+    }
+
     suspend fun saveInputs(
         propertyValue: Double,
         downPayment: Double,
@@ -149,7 +187,10 @@ class SettingsManager(private val context: Context) {
         interestRate: Double,
         isAnnuity: Boolean,
         percentLocked: Boolean,
-        manualMonthlyPayment: Double
+        manualMonthlyPayment: Double,
+        discountAmount: Double,
+        isMarkup: Boolean,
+        discountPercentLocked: Boolean
     ) {
         context.settingsDataStore.edit { preferences ->
             preferences[PROPERTY_VALUE_AMOUNT] = propertyValue
@@ -160,6 +201,9 @@ class SettingsManager(private val context: Context) {
             preferences[IS_ANNUITY_PAYMENT] = isAnnuity
             preferences[IS_DOWN_PAYMENT_PERCENT_LOCKED] = percentLocked
             preferences[MANUAL_MONTHLY_PAYMENT_AMOUNT] = manualMonthlyPayment
+            preferences[DISCOUNT_AMOUNT] = discountAmount
+            preferences[IS_MARKUP] = isMarkup
+            preferences[IS_DISCOUNT_PERCENT_LOCKED] = discountPercentLocked
         }
     }
 }
