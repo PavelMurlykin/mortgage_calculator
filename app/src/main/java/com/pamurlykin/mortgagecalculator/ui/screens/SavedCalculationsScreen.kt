@@ -187,6 +187,15 @@ fun CalculationCard(
 
             DetailRow("Ежемесячный платеж", "${integerFormatter.format(monthlyPayment)} ₽", labelFontSize, valueFontSize)
             DetailRow("Стоимость объекта", "${integerFormatter.format(finalProp)} ₽", labelFontSize, valueFontSize)
+            
+            val downPaymentPercent = if (finalProp > 0) (calculation.downPayment / finalProp * 100.0) else 0.0
+            DetailRow(
+                label = "Первоначальный взнос", 
+                value = "${integerFormatter.format(calculation.downPayment)} ₽ (${rateFormatter.format(downPaymentPercent)}%)",
+                labelSize = labelFontSize,
+                valueSize = valueFontSize
+            )
+
             DetailRow("Срок", "${calculation.termYears} ${formatYearsLabel(calculation.termYears)}", labelFontSize, valueFontSize)
             DetailRow("Процентная ставка", "${rateFormatter.format(calculation.interestRate)} %", labelFontSize, valueFontSize)
         }
