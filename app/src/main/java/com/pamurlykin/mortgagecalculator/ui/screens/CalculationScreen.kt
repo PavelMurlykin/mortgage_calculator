@@ -189,24 +189,114 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
         Spacer(modifier = Modifier.height(8.dp))
 
         if (calculationType == CalculationType.MONTHLY_PAYMENT) {
-            MonthlyPaymentFields(
-                mortgageViewModel = mortgageViewModel,
-                propertyValue = propertyValue,
-                stepChangeAmount = stepChangeAmount,
-                showDiscountOption = showDiscountOption,
-                isMarkup = isMarkup,
-                discountAmount = discountAmount,
-                isDiscountPercentLocked = isDiscountPercentLocked,
-                discountPercent = discountPercent,
-                stepPercent = stepPercent,
-                finalPropertyValue = finalPropertyValue,
-                integerFormatter = integerFormatter
+            InputCard(
+                label = "Стоимость объекта",
+                value = propertyValue,
+                onValueChange = { mortgageViewModel.updatePropertyValue(it) },
+                step = stepChangeAmount,
+                isMoney = true,
+                suffix = " ₽",
+                range = 1.0..1000000000.0
             )
+            
+            if (showDiscountOption) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "Стоимость объекта с учетом ${if (isMarkup) "удорожания" else "скидки"}", 
+                            fontSize = 12.sp, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = integerFormatter.format(finalPropertyValue) + " ₽",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isMarkup) "Удорожание" else "Скидка",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Switch(
+                                checked = isMarkup,
+                                onCheckedChange = { mortgageViewModel.isMarkup.value = it }
+                            )
+                        }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            NumericField(
+                                value = discountAmount,
+                                onValueChange = { mortgageViewModel.updateDiscountAmount(it) },
+                                modifier = Modifier.weight(1f),
+                                isMoney = true,
+                                suffix = " ₽"
+                            )
+                            if (!isDiscountPercentLocked) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Row {
+                                IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount - stepChangeAmount) }) { 
+                                    Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                                IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount + stepChangeAmount) }) { 
+                                    Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                            }
+                        }
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.LightGray.copy(alpha = 0.2f))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            NumericField(
+                                value = discountPercent,
+                                onValueChange = { mortgageViewModel.updateDiscountPercent(it) },
+                                modifier = Modifier.weight(1f),
+                                suffix = " %"
+                            )
+                            if (isDiscountPercentLocked) {
+                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Row {
+                                IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent - stepPercent) }) { 
+                                    Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                                IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent + stepPercent) }) { 
+                                    Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         } else {
-            PropertyValueFields(
-                mortgageViewModel = mortgageViewModel,
-                manualMonthlyPayment = manualMonthlyPayment,
-                stepMonthlyPayment = stepMonthlyPayment
+            InputCard(
+                label = "Ежемесячный платеж",
+                value = manualMonthlyPayment,
+                onValueChange = { mortgageViewModel.updateManualMonthlyPayment(it) },
+                step = stepMonthlyPayment,
+                isMoney = true,
+                suffix = " ₽",
+                range = 1.0..10000000.0
             )
         }
 
@@ -239,132 +329,6 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             range = 0.0..100.0
         )
     }
-}
-
-@Composable
-fun MonthlyPaymentFields(
-    mortgageViewModel: MortgageViewModel,
-    propertyValue: Double,
-    stepChangeAmount: Double,
-    showDiscountOption: Boolean,
-    isMarkup: Boolean,
-    discountAmount: Double,
-    isDiscountPercentLocked: Boolean,
-    discountPercent: Double,
-    stepPercent: Double,
-    finalPropertyValue: Double,
-    integerFormatter: DecimalFormat
-) {
-    InputCard(
-        label = "Стоимость объекта",
-        value = propertyValue,
-        onValueChange = { mortgageViewModel.updatePropertyValue(it) },
-        step = stepChangeAmount,
-        isMoney = true,
-        suffix = " ₽",
-        range = 1.0..1000000000.0
-    )
-
-    if (showDiscountOption) {
-        Card(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isMarkup) "Удорожание" else "Скидка",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Switch(
-                        checked = isMarkup,
-                        onCheckedChange = { mortgageViewModel.isMarkup.value = it }
-                    )
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    NumericField(
-                        value = discountAmount,
-                        onValueChange = { mortgageViewModel.updateDiscountAmount(it) },
-                        modifier = Modifier.weight(1f),
-                        isMoney = true,
-                        suffix = " ₽"
-                    )
-                    if (!isDiscountPercentLocked) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Row {
-                        IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount - stepChangeAmount) }) { 
-                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                        IconButton(onClick = { mortgageViewModel.updateDiscountAmount(discountAmount + stepChangeAmount) }) { 
-                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                    }
-                }
-                
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = Color.LightGray.copy(alpha = 0.2f))
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    NumericField(
-                        value = discountPercent,
-                        onValueChange = { mortgageViewModel.updateDiscountPercent(it) },
-                        modifier = Modifier.weight(1f),
-                        suffix = " %"
-                    )
-                    if (isDiscountPercentLocked) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Row {
-                        IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent - stepPercent) }) { 
-                            Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                        IconButton(onClick = { mortgageViewModel.updateDiscountPercent(discountPercent + stepPercent) }) { 
-                            Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Итоговая стоимость объекта", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        text = integerFormatter.format(finalPropertyValue) + " ₽",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Blue
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PropertyValueFields(
-    mortgageViewModel: MortgageViewModel,
-    manualMonthlyPayment: Double,
-    stepMonthlyPayment: Double
-) {
-    InputCard(
-        label = "Ежемесячный платеж",
-        value = manualMonthlyPayment,
-        onValueChange = { mortgageViewModel.updateManualMonthlyPayment(it) },
-        step = stepMonthlyPayment,
-        isMoney = true,
-        suffix = " ₽",
-        range = 1.0..10000000.0
-    )
 }
 
 @Composable
