@@ -64,79 +64,85 @@ fun PaymentScheduleScreen(
     val symbols = DecimalFormatSymbols(Locale.getDefault()).apply { groupingSeparator = ' ' }
     val formatter = DecimalFormat("#,###", symbols)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("График платежей", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
-                    }
-                }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // Заголовок с кнопкой назад, как на других экранах
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+            }
+            Text(
+                text = "График", 
+                fontSize = 32.sp, 
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
-    ) { innerPadding ->
-        Column(
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Подзаголовки таблицы
+        Row(
             modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Месяц",
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Платеж",
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "Остаток",
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+            Text(
+                text = "Месяц",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Платеж",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Остаток",
+                modifier = Modifier.weight(1f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                yearsList.forEach { year ->
-                    val months = groupedSchedule[year] ?: emptyList()
-                    item {
-                        YearHeader(
-                            year = year,
-                            isExpanded = expandedYears[year] ?: false,
-                            onToggle = { expandedYears[year] = !(expandedYears[year] ?: false) }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            yearsList.forEach { year ->
+                val months = groupedSchedule[year] ?: emptyList()
+                item {
+                    YearHeader(
+                        year = year,
+                        isExpanded = expandedYears[year] ?: false,
+                        onToggle = { expandedYears[year] = !(expandedYears[year] ?: false) }
+                    )
+                }
+
+                if (expandedYears[year] == true) {
+                    items(months) { paymentItem ->
+                        PaymentRow(paymentItem, formatter)
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
-                    }
-
-                    if (expandedYears[year] == true) {
-                        items(months) { paymentItem ->
-                            PaymentRow(paymentItem, formatter)
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                thickness = 0.5.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
                     }
                 }
             }
@@ -144,6 +150,7 @@ fun PaymentScheduleScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YearHeader(year: Int, isExpanded: Boolean, onToggle: () -> Unit) {
     Card(
