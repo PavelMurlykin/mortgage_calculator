@@ -17,19 +17,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pamurlykin.mortgagecalculator.util.MortgageCalculator
+import com.pamurlykin.mortgagecalculator.util.PaymentItem
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
-import kotlin.math.pow
-
-data class PaymentItem(
-    val monthNumber: Int,
-    val paymentAmount: Double,
-    val principalAmount: Double,
-    val interestAmount: Double,
-    val remainingBalance: Double,
-    val date: Calendar
-)
 
 private val RUSSIAN_MONTHS = listOf(
     "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -43,10 +35,12 @@ fun PaymentScheduleScreen(
     interestRate: Double,
     termMonths: Int,
     isAnnuity: Boolean,
+    gracePeriodMonths: Int = 0,
+    graceInterestRate: Double = 0.0,
     onBack: () -> Unit
 ) {
-    val paymentSchedule = remember(loanAmount, interestRate, termMonths, isAnnuity) {
-        calculatePaymentSchedule(loanAmount, interestRate, termMonths, isAnnuity)
+    val paymentSchedule = remember(loanAmount, interestRate, termMonths, isAnnuity, gracePeriodMonths, graceInterestRate) {
+        MortgageCalculator.calculatePaymentSchedule(loanAmount, interestRate, termMonths, isAnnuity, gracePeriodMonths, graceInterestRate)
     }
     
     val groupedSchedule = remember(paymentSchedule) {
@@ -193,13 +187,12 @@ fun PaymentRow(paymentItem: PaymentItem, formatter: DecimalFormat) {
             .padding(horizontal = 24.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = monthName,
-            modifier = Modifier.weight(1f),
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Start
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = monthName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (paymentItem.isGracePeriod) {
+                Text("Льготный", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
         Text(
             text = formatter.format(paymentItem.paymentAmount),
             modifier = Modifier.weight(1f),
@@ -216,65 +209,4 @@ fun PaymentRow(paymentItem: PaymentItem, formatter: DecimalFormat) {
             textAlign = TextAlign.Center
         )
     }
-}
-
-private fun calculatePaymentSchedule(
-    loanAmount: Double,
-    interestRate: Double,
-    totalMonths: Int,
-    isAnnuity: Boolean
-): List<PaymentItem> {
-    val scheduleList = mutableListOf<PaymentItem>()
-    if (loanAmount <= 0 || totalMonths <= 0) return scheduleList
-
-    val monthlyInterestRate = interestRate / 100 / 12
-    var remainingBalanceValue = loanAmount
-    val startDate = Calendar.getInstance()
-
-    if (isAnnuity) {
-        val annuityPayment = if (monthlyInterestRate == 0.0) {
-            loanAmount / totalMonths
-        } else {
-            loanAmount * (monthlyInterestRate * (1 + monthlyInterestRate).pow(totalMonths)) /
-                    ((1 + monthlyInterestRate).pow(totalMonths) - 1)
-        }
-
-        for (month in 1..totalMonths) {
-            val interestPart = remainingBalanceValue * monthlyInterestRate
-            val principalPart = annuityPayment - interestPart
-            remainingBalanceValue -= principalPart
-            val paymentDate = (startDate.clone() as Calendar).apply { add(Calendar.MONTH, month) }
-
-            scheduleList.add(
-                PaymentItem(
-                    monthNumber = month,
-                    paymentAmount = annuityPayment,
-                    principalAmount = principalPart,
-                    interestAmount = interestPart,
-                    remainingBalance = remainingBalanceValue.coerceAtLeast(0.0),
-                    date = paymentDate
-                )
-            )
-        }
-    } else {
-        val fixedPrincipalPart = loanAmount / totalMonths
-        for (month in 1..totalMonths) {
-            val interestPart = remainingBalanceValue * monthlyInterestRate
-            val currentMonthlyPayment = fixedPrincipalPart + interestPart
-            remainingBalanceValue -= fixedPrincipalPart
-            val paymentDate = (startDate.clone() as Calendar).apply { add(Calendar.MONTH, month) }
-
-            scheduleList.add(
-                PaymentItem(
-                    monthNumber = month,
-                    paymentAmount = currentMonthlyPayment,
-                    principalAmount = fixedPrincipalPart,
-                    interestAmount = interestPart,
-                    remainingBalance = remainingBalanceValue.coerceAtLeast(0.0),
-                    date = paymentDate
-                )
-            )
-        }
-    }
-    return scheduleList
 }

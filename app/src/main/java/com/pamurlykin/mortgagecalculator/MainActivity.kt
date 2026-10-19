@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.*
 import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
 import com.pamurlykin.mortgagecalculator.ui.screens.*
@@ -96,7 +98,13 @@ fun MainAppScreen() {
             composable(AppScreen.SavedCalculations.route) { 
                 SavedCalculationsScreen(mortgageViewModel, navigationController) 
             }
-            composable("schedule/{loanAmount}/{interestRate}/{termMonths}/{isAnnuity}") { backStackEntry ->
+            composable(
+                "schedule/{loanAmount}/{interestRate}/{termMonths}/{isAnnuity}?gracePeriodMonths={gracePeriodMonths}&graceInterestRate={graceInterestRate}",
+                arguments = listOf(
+                    navArgument("gracePeriodMonths") { type = NavType.IntType; defaultValue = 0 },
+                    navArgument("graceInterestRate") { type = NavType.StringType; defaultValue = "0.0" }
+                )
+            ) { backStackEntry ->
                 val loanAmount = backStackEntry.arguments?.getString("loanAmount")?.toDoubleOrNull() ?: 0.0
                 val interestRate = backStackEntry.arguments?.getString("interestRate")?.toDoubleOrNull() ?: 0.0
                 val termMonths = backStackEntry.arguments?.getString("termMonths")?.toIntOrNull() ?: 0
@@ -107,6 +115,8 @@ fun MainAppScreen() {
                     interestRate = interestRate, 
                     termMonths = termMonths,
                     isAnnuity = isAnnuity, 
+                    gracePeriodMonths = backStackEntry.arguments?.getInt("gracePeriodMonths") ?: 0,
+                    graceInterestRate = backStackEntry.arguments?.getString("graceInterestRate")?.toDoubleOrNull() ?: 0.0,
                     onBack = { navigationController.popBackStack() }
                 )
             }

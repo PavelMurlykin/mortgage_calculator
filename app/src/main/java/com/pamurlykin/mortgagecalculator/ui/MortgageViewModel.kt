@@ -8,6 +8,7 @@ import com.pamurlykin.mortgagecalculator.data.CalculationType
 import com.pamurlykin.mortgagecalculator.data.MortgageEntity
 import com.pamurlykin.mortgagecalculator.data.SettingsManager
 import com.pamurlykin.mortgagecalculator.util.MortgageCalculator
+import com.pamurlykin.mortgagecalculator.util.MortgagePayments
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,7 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     val isAdditionalGroupExpanded: StateFlow<Boolean> = settingsManager.isAdditionalGroupExpanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val showDiscountOption: StateFlow<Boolean> = settingsManager.showDiscountOption.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val showGracePeriodOption: StateFlow<Boolean> = settingsManager.showGracePeriodOption.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     // Calculation Inputs
     val propertyValue = MutableStateFlow<Double>(6600000.0)
@@ -45,6 +47,15 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     val isDownPaymentPercentLocked = MutableStateFlow<Boolean>(false)
     val isTermYearsLocked = MutableStateFlow<Boolean>(true)
     val manualMonthlyPayment = MutableStateFlow<Double>(50000.0)
+    val gracePeriodMonths = MutableStateFlow(0)
+    val gracePeriodYears: StateFlow<Int> = gracePeriodMonths.map { it / 12 }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
+    val graceInterestRate = MutableStateFlow(0.0)
+    val isGracePeriodYearsLocked = MutableStateFlow(true)
+
+    private val graceParameters = combine(showGracePeriodOption, gracePeriodMonths, graceInterestRate, termMonths) { show, months, rate, term ->
+        Pair(if (show) months.coerceIn(0, term) else 0, rate)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, Pair(0, 0.0))
     
     // Discount/Markup inputs
     val discountAmount = MutableStateFlow<Double>(0.0)
@@ -62,28 +73,15 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         MortgageCalculator.calculateFinalPropertyValue(prop, disc, markup, show && type == CalculationType.MONTHLY_PAYMENT)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
-    val calculatedMonthlyPayment: StateFlow<Double> = combine(
-        finalPropertyValue, 
-        downPayment, 
-        termMonths, 
-        interestRate, 
-        isAnnuity
-    ) { property, down, months, rate, annuity ->
-        MortgageCalculator.calculateMonthlyPayment(property - down, rate, months, annuity)
+    private val calculatedLoanAmount: StateFlow<Double> = combine(
+        manualMonthlyPayment, interestRate, termMonths, isAnnuity, graceParameters
+    ) { payment, rate, months, annuity, grace ->
+        MortgageCalculator.calculateLoanAmount(payment, rate, months, annuity, grace.first, grace.second)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     val calculatedPropertyValue: StateFlow<Double> = combine(
-        manualMonthlyPayment, interestRate, termMonths, isAnnuity, downPayment, downPaymentPercent, isDownPaymentPercentLocked
-    ) { args ->
-        val payment = args[0] as Double
-        val rate = args[1] as Double
-        val months = args[2] as Int
-        val annuity = args[3] as Boolean
-        val down = args[4] as Double
-        val percent = args[5] as Double
-        val isPercentLocked = args[6] as Boolean
-        
-        val loanAmount = MortgageCalculator.calculateLoanAmount(payment, rate, months, annuity)
+        calculatedLoanAmount, downPayment, downPaymentPercent, isDownPaymentPercentLocked
+    ) { loanAmount, down, percent, isPercentLocked ->
         if (isPercentLocked && percent < 100.0) {
             loanAmount / (1 - percent / 100.0)
         } else {
@@ -92,32 +90,39 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     val currentLoanAmount: StateFlow<Double> = combine(
-        propertyValue, downPayment, finalPropertyValue, calculationType, calculatedPropertyValue, manualMonthlyPayment, interestRate, termMonths, isAnnuity
-    ) { args ->
-        val dPayment = args[1] as Double
-        val fPropValue = args[2] as Double
-        val type = args[3] as CalculationType
-        val mPayment = args[5] as Double
-        val iRate = args[6] as Double
-        val tMonths = args[7] as Int
-        val iAnnuity = args[8] as Boolean
-
+        finalPropertyValue, downPayment, calculationType, calculatedLoanAmount
+    ) { property, down, type, loanAmount ->
         if (type == CalculationType.MONTHLY_PAYMENT) {
-            (fPropValue - dPayment).coerceAtLeast(0.0)
+            (property - down).coerceAtLeast(0.0)
         } else {
-            MortgageCalculator.calculateLoanAmount(mPayment, iRate, tMonths, iAnnuity)
+            loanAmount
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
+
+    private val calculatedPayments: StateFlow<MortgagePayments> = combine(
+        currentLoanAmount, interestRate, termMonths, isAnnuity, graceParameters
+    ) { loanAmount, rate, months, annuity, grace ->
+        MortgageCalculator.calculatePayments(loanAmount, rate, months, annuity, grace.first, grace.second)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), MortgagePayments(0.0))
+
+    val calculatedMonthlyPayment: StateFlow<Double> = calculatedPayments.map { it.monthlyPayment }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
+    val calculatedGraceMonthlyPayment: StateFlow<Double> = calculatedPayments.map { it.graceMonthlyPayment }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), 0.0)
 
     init {
         viewModelScope.launch {
             settingsManager.propertyValue.first().let { value -> propertyValue.value = value.coerceAtLeast(1.0) }
             settingsManager.downPayment.first().let { value -> downPayment.value = value.coerceAtLeast(0.0) }
             settingsManager.downPaymentPercent.first().let { value -> downPaymentPercent.value = value.coerceIn(0.0, 100.0) }
-            settingsManager.termYears.first().let { value -> 
-                termYears.value = value.coerceIn(0, 30)
-                termMonths.value = value * 12
+            settingsManager.termMonths.first().let { value ->
+                termMonths.value = value.coerceIn(0, 360)
+                termYears.value = termMonths.value / 12
             }
+            isTermYearsLocked.value = settingsManager.isTermYearsLocked.first()
+            gracePeriodMonths.value = settingsManager.gracePeriodMonths.first().coerceIn(0, termMonths.value)
+            graceInterestRate.value = settingsManager.graceInterestRate.first().coerceIn(0.0, 100.0)
+            isGracePeriodYearsLocked.value = settingsManager.isGracePeriodYearsLocked.first()
             settingsManager.interestRate.first().let { value -> interestRate.value = value.coerceIn(0.0, 100.0) }
             settingsManager.isAnnuity.first().let { value -> isAnnuity.value = value }
             settingsManager.isDownPaymentPercentLocked.first().let { value -> isDownPaymentPercentLocked.value = value }
@@ -156,7 +161,8 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
             combine(
                 propertyValue, downPayment, downPaymentPercent, termYears, interestRate, 
                 isAnnuity, isDownPaymentPercentLocked, manualMonthlyPayment, 
-                discountAmount, isMarkup, isDiscountPercentLocked
+                discountAmount, isMarkup, isDiscountPercentLocked, termMonths, isTermYearsLocked,
+                gracePeriodMonths, graceInterestRate, isGracePeriodYearsLocked
             ) { args ->
                 settingsManager.saveInputs(
                     args[0] as Double,
@@ -169,7 +175,12 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
                     args[7] as Double,
                     args[8] as Double,
                     args[9] as Boolean,
-                    args[10] as Boolean
+                    args[10] as Boolean,
+                    args[11] as Int,
+                    args[12] as Boolean,
+                    args[13] as Int,
+                    args[14] as Double,
+                    args[15] as Boolean
                 )
             }.collect()
         }
@@ -230,6 +241,7 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         val validatedYears = newYears.coerceIn(0, 30)
         termYears.value = validatedYears
         termMonths.value = validatedYears * 12
+        gracePeriodMonths.value = gracePeriodMonths.value.coerceAtMost(termMonths.value)
         isTermYearsLocked.value = true
     }
 
@@ -237,42 +249,79 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
         val validatedMonths = newMonths.coerceIn(0, 360)
         termMonths.value = validatedMonths
         termYears.value = validatedMonths / 12
+        gracePeriodMonths.value = gracePeriodMonths.value.coerceAtMost(validatedMonths)
         isTermYearsLocked.value = false
     }
 
     fun updateInterestRate(newRate: Double) { interestRate.value = newRate.coerceIn(0.0, 100.0) }
+    fun updateGracePeriodYears(newYears: Int) {
+        gracePeriodMonths.value = (newYears.coerceIn(0, 30) * 12).coerceAtMost(termMonths.value)
+        isGracePeriodYearsLocked.value = true
+    }
+    fun updateGracePeriodMonths(newMonths: Int) {
+        gracePeriodMonths.value = newMonths.coerceIn(0, termMonths.value)
+        isGracePeriodYearsLocked.value = false
+    }
+    fun updateGraceInterestRate(newRate: Double) { graceInterestRate.value = newRate.coerceIn(0.0, 100.0) }
     fun updateManualMonthlyPayment(newAmount: Double) { manualMonthlyPayment.value = newAmount.coerceAtLeast(0.0) }
     fun updateCalculationType(newType: CalculationType) { viewModelScope.launch { settingsManager.updateCalculationType(newType) } }
 
     fun loadCalculation(calculation: MortgageEntity) {
         propertyValue.value = calculation.propertyValue
         downPayment.value = calculation.downPayment
-        termYears.value = calculation.termYears
-        termMonths.value = calculation.termYears * 12
+        val restoredPropertyValue = MortgageCalculator.calculateFinalPropertyValue(
+            calculation.propertyValue, calculation.discountAmount, calculation.isMarkup, calculation.showDiscount
+        )
+        downPaymentPercent.value = if (restoredPropertyValue > 0) calculation.downPayment / restoredPropertyValue * 100 else 0.0
+        isDownPaymentPercentLocked.value = false
+        termMonths.value = calculation.termMonths.coerceIn(0, 360)
+        termYears.value = termMonths.value / 12
+        isTermYearsLocked.value = calculation.isTermYearsLocked
+        gracePeriodMonths.value = calculation.gracePeriodMonths.coerceIn(0, termMonths.value)
+        graceInterestRate.value = calculation.graceInterestRate.coerceIn(0.0, 100.0)
+        isGracePeriodYearsLocked.value = calculation.isGracePeriodYearsLocked
         interestRate.value = calculation.interestRate
         isAnnuity.value = calculation.isAnnuity
         discountAmount.value = calculation.discountAmount
+        discountPercent.value = if (calculation.propertyValue > 0) calculation.discountAmount / calculation.propertyValue * 100 else 0.0
+        isDiscountPercentLocked.value = false
         isMarkup.value = calculation.isMarkup
-        viewModelScope.launch { settingsManager.updateShowDiscountOption(calculation.showDiscount) }
+        viewModelScope.launch {
+            settingsManager.updateShowDiscountOption(calculation.showDiscount)
+            settingsManager.updateShowGracePeriodOption(calculation.showGracePeriod)
+            settingsManager.updateCalculationType(CalculationType.MONTHLY_PAYMENT)
+        }
     }
 
     fun saveCalculation() {
+        val finalValue = MortgageCalculator.calculateFinalPropertyValue(
+            propertyValue.value, discountAmount.value, isMarkup.value, showDiscountOption.value
+        )
+        val payments = MortgageCalculator.calculatePayments(
+            finalValue - downPayment.value, interestRate.value, termMonths.value, isAnnuity.value,
+            if (showGracePeriodOption.value) gracePeriodMonths.value else 0, graceInterestRate.value
+        )
+        val calculation = MortgageEntity(
+            propertyValue = propertyValue.value,
+            downPayment = downPayment.value,
+            termYears = termYears.value,
+            termMonths = termMonths.value,
+            isTermYearsLocked = isTermYearsLocked.value,
+            interestRate = interestRate.value,
+            isAnnuity = isAnnuity.value,
+            title = "Сохраненный расчет",
+            discountAmount = discountAmount.value,
+            isMarkup = isMarkup.value,
+            showDiscount = showDiscountOption.value,
+            showGracePeriod = showGracePeriodOption.value,
+            gracePeriodMonths = gracePeriodMonths.value,
+            graceInterestRate = graceInterestRate.value,
+            isGracePeriodYearsLocked = isGracePeriodYearsLocked.value,
+            calculatedPayment = payments.monthlyPayment,
+            finalPropertyValue = finalValue
+        )
         viewModelScope.launch {
-            mortgageDao.insertCalculation(
-                MortgageEntity(
-                    propertyValue = propertyValue.value,
-                    downPayment = downPayment.value,
-                    termYears = termYears.value,
-                    interestRate = interestRate.value,
-                    isAnnuity = isAnnuity.value,
-                    title = "Сохраненный расчет",
-                    discountAmount = discountAmount.value,
-                    isMarkup = isMarkup.value,
-                    showDiscount = showDiscountOption.value,
-                    calculatedPayment = calculatedMonthlyPayment.value,
-                    finalPropertyValue = finalPropertyValue.value
-                )
-            )
+            mortgageDao.insertCalculation(calculation)
         }
     }
 
@@ -289,4 +338,5 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
     fun updateModifiersGroupExpanded(expanded: Boolean) { viewModelScope.launch { settingsManager.updateModifiersGroupExpanded(expanded) } }
     fun updateAdditionalGroupExpanded(expanded: Boolean) { viewModelScope.launch { settingsManager.updateAdditionalGroupExpanded(expanded) } }
     fun updateShowDiscountOption(show: Boolean) { viewModelScope.launch { settingsManager.updateShowDiscountOption(show) } }
+    fun updateShowGracePeriodOption(show: Boolean) { viewModelScope.launch { settingsManager.updateShowGracePeriodOption(show) } }
 }

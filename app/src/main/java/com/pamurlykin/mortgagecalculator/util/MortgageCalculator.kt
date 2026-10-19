@@ -9,7 +9,13 @@ data class PaymentItem(
     val principalAmount: Double,
     val interestAmount: Double,
     val remainingBalance: Double,
-    val date: Calendar
+    val date: Calendar,
+    val isGracePeriod: Boolean = false
+)
+
+data class MortgagePayments(
+    val monthlyPayment: Double,
+    val graceMonthlyPayment: Double = 0.0
 )
 
 object MortgageCalculator {
@@ -46,9 +52,16 @@ object MortgageCalculator {
         monthlyPayment: Double,
         interestRate: Double,
         termMonths: Int,
-        isAnnuity: Boolean
+        isAnnuity: Boolean,
+        gracePeriodMonths: Int = 0,
+        graceInterestRate: Double = 0.0
     ): Double {
         if (monthlyPayment <= 0 || termMonths <= 0) return 0.0
+        if (gracePeriodMonths > 0) {
+            val payments = calculatePayments(1.0, interestRate, termMonths, isAnnuity, gracePeriodMonths, graceInterestRate)
+            val paymentPerUnit = if (gracePeriodMonths >= termMonths) payments.graceMonthlyPayment else payments.monthlyPayment
+            return monthlyPayment / paymentPerUnit
+        }
         val monthlyRate = interestRate / 100 / 12
         return if (isAnnuity) {
             if (monthlyRate == 0.0) monthlyPayment * termMonths
@@ -58,49 +71,69 @@ object MortgageCalculator {
         }
     }
 
+    fun calculatePayments(
+        loanAmount: Double,
+        interestRate: Double,
+        termMonths: Int,
+        isAnnuity: Boolean,
+        gracePeriodMonths: Int = 0,
+        graceInterestRate: Double = 0.0
+    ): MortgagePayments {
+        if (loanAmount <= 0 || termMonths <= 0) return MortgagePayments(0.0)
+        val graceMonths = gracePeriodMonths.coerceIn(0, termMonths)
+        if (graceMonths == 0) {
+            return MortgagePayments(calculateMonthlyPayment(loanAmount, interestRate, termMonths, isAnnuity))
+        }
+
+        val gracePayment = calculateMonthlyPayment(loanAmount, graceInterestRate, termMonths, isAnnuity)
+        val remainingMonths = termMonths - graceMonths
+        val balance = if (isAnnuity) {
+            calculateLoanAmount(gracePayment, graceInterestRate, remainingMonths, true)
+        } else {
+            loanAmount * remainingMonths / termMonths
+        }
+        val regularPayment = calculateMonthlyPayment(balance, interestRate, remainingMonths, isAnnuity)
+        return MortgagePayments(regularPayment, gracePayment)
+    }
+
     fun calculatePaymentSchedule(
         loanAmount: Double,
         interestRate: Double,
         totalMonths: Int,
-        isAnnuity: Boolean
+        isAnnuity: Boolean,
+        gracePeriodMonths: Int = 0,
+        graceInterestRate: Double = 0.0
     ): List<PaymentItem> {
         val scheduleList = mutableListOf<PaymentItem>()
         if (loanAmount <= 0 || totalMonths <= 0) return scheduleList
 
-        val monthlyInterestRate = interestRate / 100 / 12
+        val graceMonths = gracePeriodMonths.coerceIn(0, totalMonths)
+        val payments = calculatePayments(loanAmount, interestRate, totalMonths, isAnnuity, graceMonths, graceInterestRate)
         var remainingBalanceValue = loanAmount
         val startDate = Calendar.getInstance()
-
-        if (isAnnuity) {
-            val annuityPayment = if (monthlyInterestRate == 0.0) {
-                loanAmount / totalMonths
+        val fixedPrincipalPart = loanAmount / totalMonths
+        for (month in 1..totalMonths) {
+            val isGracePeriod = month <= graceMonths
+            val monthlyRate = (if (isGracePeriod) graceInterestRate else interestRate) / 100 / 12
+            val interestPart = remainingBalanceValue * monthlyRate
+            val payment = if (isAnnuity) {
+                if (isGracePeriod) payments.graceMonthlyPayment else payments.monthlyPayment
             } else {
-                loanAmount * (monthlyInterestRate * (1 + monthlyInterestRate).pow(totalMonths)) /
-                        ((1 + monthlyInterestRate).pow(totalMonths) - 1)
+                fixedPrincipalPart + interestPart
             }
-
-            for (month in 1..totalMonths) {
-                val interestPart = remainingBalanceValue * monthlyInterestRate
-                val principalPart = annuityPayment - interestPart
-                remainingBalanceValue -= principalPart
-                val paymentDate = (startDate.clone() as Calendar).apply { add(Calendar.MONTH, month) }
-
-                scheduleList.add(
-                    PaymentItem(month, annuityPayment, principalPart, interestPart, remainingBalanceValue.coerceAtLeast(0.0), paymentDate)
-                )
-            }
-        } else {
-            val fixedPrincipalPart = loanAmount / totalMonths
-            for (month in 1..totalMonths) {
-                val interestPart = remainingBalanceValue * monthlyInterestRate
-                val currentMonthlyPayment = fixedPrincipalPart + interestPart
-                remainingBalanceValue -= fixedPrincipalPart
-                val paymentDate = (startDate.clone() as Calendar).apply { add(Calendar.MONTH, month) }
-
-                scheduleList.add(
-                    PaymentItem(month, currentMonthlyPayment, fixedPrincipalPart, interestPart, remainingBalanceValue.coerceAtLeast(0.0), paymentDate)
-                )
-            }
+            // Present value of the remaining payments avoids accumulating floating-point
+            // error over long terms, especially near the upper interest-rate limit.
+            val nextBalance = if (isAnnuity) {
+                calculateLoanAmount(payment, if (isGracePeriod) graceInterestRate else interestRate, totalMonths - month, true)
+            } else {
+                loanAmount * (totalMonths - month) / totalMonths
+            }.coerceIn(0.0, remainingBalanceValue)
+            val principalPart = remainingBalanceValue - nextBalance
+            remainingBalanceValue = nextBalance
+            val paymentDate = (startDate.clone() as Calendar).apply { add(Calendar.MONTH, month) }
+            scheduleList.add(
+                PaymentItem(month, payment, principalPart, interestPart, remainingBalanceValue.coerceAtLeast(0.0), paymentDate, isGracePeriod)
+            )
         }
         return scheduleList
     }

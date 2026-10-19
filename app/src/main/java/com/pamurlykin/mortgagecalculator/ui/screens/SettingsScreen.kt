@@ -40,6 +40,7 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
     val isAdditionalExpanded by mortgageViewModel.isAdditionalGroupExpanded.collectAsState()
 
     val showDiscountOption by mortgageViewModel.showDiscountOption.collectAsState()
+    val showGracePeriodOption by mortgageViewModel.showGracePeriodOption.collectAsState()
 
     var stepAmountText by remember(stepChangeAmount) { 
         mutableStateOf(String.format("%.0f", stepChangeAmount)) 
@@ -179,6 +180,25 @@ fun SettingsScreen(mortgageViewModel: MortgageViewModel) {
                         Switch(
                             checked = showDiscountOption,
                             onCheckedChange = { mortgageViewModel.updateShowDiscountOption(it) }
+                        )
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Льготный период", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Позволяет задать отдельную процентную ставку на начальный срок ипотеки.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = showGracePeriodOption,
+                            onCheckedChange = { mortgageViewModel.updateShowGracePeriodOption(it) }
                         )
                     }
                 }

@@ -30,12 +30,18 @@ class SettingsManager(private val context: Context) {
 
         // Additional params
         val SHOW_DISCOUNT_OPTION = booleanPreferencesKey("show_discount_option")
+        val SHOW_GRACE_PERIOD_OPTION = booleanPreferencesKey("show_grace_period_option")
 
         // Input persistence
         val PROPERTY_VALUE_AMOUNT = doublePreferencesKey("property_value")
         val DOWN_PAYMENT_AMOUNT = doublePreferencesKey("down_payment")
         val DOWN_PAYMENT_PERCENTAGE = doublePreferencesKey("down_payment_percent")
         val LOAN_TERM_YEARS = intPreferencesKey("term_years")
+        val LOAN_TERM_MONTHS = intPreferencesKey("term_months")
+        val IS_TERM_YEARS_LOCKED = booleanPreferencesKey("is_term_years_locked")
+        val GRACE_PERIOD_MONTHS = intPreferencesKey("grace_period_months")
+        val GRACE_INTEREST_RATE = doublePreferencesKey("grace_interest_rate")
+        val IS_GRACE_PERIOD_YEARS_LOCKED = booleanPreferencesKey("is_grace_period_years_locked")
         val INTEREST_RATE_VALUE = doublePreferencesKey("interest_rate")
         val IS_ANNUITY_PAYMENT = booleanPreferencesKey("is_annuity")
         val IS_DOWN_PAYMENT_PERCENT_LOCKED = booleanPreferencesKey("is_down_payment_percent_locked")
@@ -81,6 +87,26 @@ class SettingsManager(private val context: Context) {
 
     val showDiscountOption: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
         preferences[SHOW_DISCOUNT_OPTION] ?: false
+    }
+
+    val showGracePeriodOption: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[SHOW_GRACE_PERIOD_OPTION] ?: false
+    }
+
+    val termMonths: Flow<Int> = context.settingsDataStore.data.map { preferences ->
+        preferences[LOAN_TERM_MONTHS] ?: ((preferences[LOAN_TERM_YEARS] ?: 30) * 12)
+    }
+    val isTermYearsLocked: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_TERM_YEARS_LOCKED] ?: true
+    }
+    val gracePeriodMonths: Flow<Int> = context.settingsDataStore.data.map { preferences ->
+        preferences[GRACE_PERIOD_MONTHS] ?: 0
+    }
+    val graceInterestRate: Flow<Double> = context.settingsDataStore.data.map { preferences ->
+        preferences[GRACE_INTEREST_RATE] ?: 0.0
+    }
+    val isGracePeriodYearsLocked: Flow<Boolean> = context.settingsDataStore.data.map { preferences ->
+        preferences[IS_GRACE_PERIOD_YEARS_LOCKED] ?: true
     }
 
     // Input state flows
@@ -179,6 +205,12 @@ class SettingsManager(private val context: Context) {
         }
     }
 
+    suspend fun updateShowGracePeriodOption(show: Boolean) {
+        context.settingsDataStore.edit { preferences ->
+            preferences[SHOW_GRACE_PERIOD_OPTION] = show
+        }
+    }
+
     suspend fun saveInputs(
         propertyValue: Double,
         downPayment: Double,
@@ -190,13 +222,23 @@ class SettingsManager(private val context: Context) {
         manualMonthlyPayment: Double,
         discountAmount: Double,
         isMarkup: Boolean,
-        discountPercentLocked: Boolean
+        discountPercentLocked: Boolean,
+        termMonths: Int,
+        termYearsLocked: Boolean,
+        gracePeriodMonths: Int,
+        graceInterestRate: Double,
+        gracePeriodYearsLocked: Boolean
     ) {
         context.settingsDataStore.edit { preferences ->
             preferences[PROPERTY_VALUE_AMOUNT] = propertyValue
             preferences[DOWN_PAYMENT_AMOUNT] = downPayment
             preferences[DOWN_PAYMENT_PERCENTAGE] = downPaymentPercentage
             preferences[LOAN_TERM_YEARS] = termYears
+            preferences[LOAN_TERM_MONTHS] = termMonths
+            preferences[IS_TERM_YEARS_LOCKED] = termYearsLocked
+            preferences[GRACE_PERIOD_MONTHS] = gracePeriodMonths
+            preferences[GRACE_INTEREST_RATE] = graceInterestRate
+            preferences[IS_GRACE_PERIOD_YEARS_LOCKED] = gracePeriodYearsLocked
             preferences[INTEREST_RATE_VALUE] = interestRate
             preferences[IS_ANNUITY_PAYMENT] = isAnnuity
             preferences[IS_DOWN_PAYMENT_PERCENT_LOCKED] = percentLocked

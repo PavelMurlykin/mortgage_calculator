@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MortgageEntity::class], version = 4, exportSchema = false)
+@Database(entities = [MortgageEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun mortgageDao(): MortgageDao
 
@@ -42,6 +42,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE calculations ADD COLUMN termMonths INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE calculations SET termMonths = termYears * 12")
+                db.execSQL("ALTER TABLE calculations ADD COLUMN isTermYearsLocked INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE calculations ADD COLUMN showGracePeriod INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE calculations ADD COLUMN gracePeriodMonths INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE calculations ADD COLUMN graceInterestRate REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE calculations ADD COLUMN isGracePeriodYearsLocked INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val databaseInstance = Room.databaseBuilder(
@@ -49,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mortgage_database"
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = databaseInstance

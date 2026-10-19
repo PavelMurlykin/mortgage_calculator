@@ -73,6 +73,7 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
     val calculationType by mortgageViewModel.calculationType.collectAsState()
 
     val calculatedMonthlyPayment by mortgageViewModel.calculatedMonthlyPayment.collectAsState()
+    val calculatedGraceMonthlyPayment by mortgageViewModel.calculatedGraceMonthlyPayment.collectAsState()
     val calculatedPropertyValue by mortgageViewModel.calculatedPropertyValue.collectAsState()
     val currentLoanAmount by mortgageViewModel.currentLoanAmount.collectAsState()
     
@@ -82,6 +83,12 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
     val stepMonthlyPayment by mortgageViewModel.stepMonthlyPayment.collectAsState()
 
     val showDiscountOption by mortgageViewModel.showDiscountOption.collectAsState()
+    val showGracePeriodOption by mortgageViewModel.showGracePeriodOption.collectAsState()
+    val gracePeriodYears by mortgageViewModel.gracePeriodYears.collectAsState()
+    val gracePeriodMonths by mortgageViewModel.gracePeriodMonths.collectAsState()
+    val graceInterestRate by mortgageViewModel.graceInterestRate.collectAsState()
+    val isGracePeriodYearsLocked by mortgageViewModel.isGracePeriodYearsLocked.collectAsState()
+    val effectiveGraceMonths = if (showGracePeriodOption) gracePeriodMonths.coerceAtMost(termMonths) else 0
     val discountAmount by mortgageViewModel.discountAmount.collectAsState()
     val isMarkup by mortgageViewModel.isMarkup.collectAsState()
     val discountPercent by mortgageViewModel.discountPercent.collectAsState()
@@ -125,10 +132,24 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         val isMonthlyType = calculationType == CalculationType.MONTHLY_PAYMENT
                         val resultAmount = if (isMonthlyType) calculatedMonthlyPayment else calculatedPropertyValue
-                        
+
+                        if (effectiveGraceMonths > 0) {
+                            Text(
+                                text = "Ежемесячный льготный платеж",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = integerFormatter.format(calculatedGraceMonthlyPayment) + " ₽",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                         Text(
                             text = if (isMonthlyType) "Ежемесячный платеж" else "Стоимость объекта",
                             fontSize = 12.sp,
@@ -140,10 +161,13 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        if (isMonthlyType && effectiveGraceMonths > 0 && effectiveGraceMonths == termMonths) {
+                            Text("После льготного периода платежей нет", fontSize = 12.sp)
+                        }
                     }
                     if (calculationType == CalculationType.MONTHLY_PAYMENT) {
                         TextButton(onClick = {
-                            navController.navigate("schedule/${currentLoanAmount}/${interestRate}/${termMonths}/${isAnnuity}")
+                            navController.navigate("schedule/${currentLoanAmount}/${interestRate}/${termMonths}/${isAnnuity}?gracePeriodMonths=${effectiveGraceMonths}&graceInterestRate=${graceInterestRate}")
                         }) {
                             Text("График >", color = MaterialTheme.colorScheme.primary)
                         }
@@ -290,7 +314,9 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             }
         } else {
             InputCard(
-                label = "Ежемесячный платеж",
+                label = if (effectiveGraceMonths > 0 && effectiveGraceMonths < termMonths) {
+                    "Ежемесячный платеж после льготного периода"
+                } else "Ежемесячный платеж",
                 value = manualMonthlyPayment,
                 onValueChange = { mortgageViewModel.updateManualMonthlyPayment(it) },
                 step = stepMonthlyPayment,
@@ -313,10 +339,11 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
         )
 
         TermCard(
-            mortgageViewModel = mortgageViewModel,
             termYears = termYears,
             termMonths = termMonths,
-            isTermYearsLocked = isTermYearsLocked
+            isTermYearsLocked = isTermYearsLocked,
+            onYearsChange = mortgageViewModel::updateTermYears,
+            onMonthsChange = mortgageViewModel::updateTermMonths
         )
 
         InputCard(
@@ -328,6 +355,26 @@ fun CalculationScreen(mortgageViewModel: MortgageViewModel, navController: NavCo
             allowEmpty = true,
             range = 0.0..100.0
         )
+        if (showGracePeriodOption) {
+            TermCard(
+                termYears = gracePeriodYears,
+                termMonths = gracePeriodMonths,
+                isTermYearsLocked = isGracePeriodYearsLocked,
+                onYearsChange = mortgageViewModel::updateGracePeriodYears,
+                onMonthsChange = mortgageViewModel::updateGracePeriodMonths,
+                label = "Срок льготного периода",
+                maxMonths = termMonths
+            )
+            InputCard(
+                label = "Льготная процентная ставка",
+                value = graceInterestRate,
+                onValueChange = mortgageViewModel::updateGraceInterestRate,
+                step = stepInterestRate,
+                suffix = " %",
+                allowEmpty = true,
+                range = 0.0..100.0
+            )
+        }
     }
 }
 
@@ -410,35 +457,39 @@ fun DownPaymentCard(
 
 @Composable
 fun TermCard(
-    mortgageViewModel: MortgageViewModel,
     termYears: Int,
     termMonths: Int,
-    isTermYearsLocked: Boolean
+    isTermYearsLocked: Boolean,
+    onYearsChange: (Int) -> Unit,
+    onMonthsChange: (Int) -> Unit,
+    label: String = "Срок",
+    maxMonths: Int = 360
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
-            Text("Срок", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NumericField(
                     value = termYears.toDouble(),
-                    onValueChange = { mortgageViewModel.updateTermYears(it.toInt()) },
+                    onValueChange = { onYearsChange(it.toInt()) },
                     modifier = Modifier.weight(1f),
                     isInteger = true,
-                    suffix = " " + formatYearsLabel(termYears)
+                    suffix = " " + formatYearsLabel(termYears),
+                    range = 0.0..(maxMonths / 12).toDouble()
                 )
                 if (isTermYearsLocked) {
                     Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Row {
-                    IconButton(onClick = { mortgageViewModel.updateTermYears(termYears - 1) }) { 
+                    IconButton(onClick = { onYearsChange((termYears - 1).coerceIn(0, maxMonths / 12)) }) {
                         Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                     }
-                    IconButton(onClick = { mortgageViewModel.updateTermYears(termYears + 1) }) { 
+                    IconButton(onClick = { onYearsChange(termYears + 1) }) {
                         Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                     }
                 }
@@ -449,20 +500,21 @@ fun TermCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 NumericField(
                     value = termMonths.toDouble(),
-                    onValueChange = { mortgageViewModel.updateTermMonths(it.toInt()) },
+                    onValueChange = { onMonthsChange(it.toInt()) },
                     modifier = Modifier.weight(1f),
                     isInteger = true,
-                    suffix = " мес."
+                    suffix = " мес.",
+                    range = 0.0..maxMonths.toDouble()
                 )
                 if (!isTermYearsLocked) {
                     Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Row {
-                    IconButton(onClick = { mortgageViewModel.updateTermMonths(termMonths - 1) }) { 
+                    IconButton(onClick = { onMonthsChange((termMonths - 1).coerceIn(0, maxMonths)) }) {
                         Text("-", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                     }
-                    IconButton(onClick = { mortgageViewModel.updateTermMonths(termMonths + 1) }) { 
+                    IconButton(onClick = { onMonthsChange((termMonths + 1).coerceIn(0, maxMonths)) }) {
                         Text("+", fontSize = 24.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) 
                     }
                 }

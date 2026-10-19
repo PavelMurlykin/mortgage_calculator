@@ -23,15 +23,16 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.pamurlykin.mortgagecalculator.data.MortgageEntity
 import com.pamurlykin.mortgagecalculator.ui.MortgageViewModel
+import com.pamurlykin.mortgagecalculator.util.MortgageCalculator
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.*
-import kotlin.math.pow
 
 @Composable
 fun SavedCalculationsScreen(mortgageViewModel: MortgageViewModel, navController: NavController) {
@@ -109,12 +110,14 @@ fun CalculationCard(
         else (calculation.propertyValue - calculation.discountAmount).coerceAtLeast(0.0)
     } else calculation.propertyValue
 
-    val monthlyPayment = calculateMonthlyPayment(
-        propertyValue = finalProp,
-        downPayment = calculation.downPayment,
-        termYears = calculation.termYears,
+    val graceMonths = if (calculation.showGracePeriod) calculation.gracePeriodMonths.coerceIn(0, calculation.termMonths) else 0
+    val payments = MortgageCalculator.calculatePayments(
+        loanAmount = finalProp - calculation.downPayment,
+        termMonths = calculation.termMonths,
         interestRate = calculation.interestRate,
-        isAnnuity = calculation.isAnnuity
+        isAnnuity = calculation.isAnnuity,
+        gracePeriodMonths = graceMonths,
+        graceInterestRate = calculation.graceInterestRate
     )
 
     Card(
@@ -185,7 +188,13 @@ fun CalculationCard(
             val labelFontSize = 15.sp
             val valueFontSize = 15.sp
 
-            DetailRow("Ежемесячный платеж", "${integerFormatter.format(monthlyPayment)} ₽", labelFontSize, valueFontSize)
+            if (graceMonths > 0) {
+                DetailRow("Ежемесячный льготный платеж", "${integerFormatter.format(payments.graceMonthlyPayment)} ₽", labelFontSize, valueFontSize)
+            }
+            DetailRow("Ежемесячный платеж", "${integerFormatter.format(payments.monthlyPayment)} ₽", labelFontSize, valueFontSize)
+            if (graceMonths > 0 && graceMonths == calculation.termMonths) {
+                Text("После льготного периода платежей нет", fontSize = 12.sp)
+            }
             DetailRow("Стоимость объекта", "${integerFormatter.format(finalProp)} ₽", labelFontSize, valueFontSize)
             
             val downPaymentPercent = if (finalProp > 0) (calculation.downPayment / finalProp * 100.0) else 0.0
@@ -196,8 +205,12 @@ fun CalculationCard(
                 valueSize = valueFontSize
             )
 
-            DetailRow("Срок", "${calculation.termYears} ${formatYearsLabel(calculation.termYears)}", labelFontSize, valueFontSize)
+            DetailRow("Срок", formatTerm(calculation.termMonths), labelFontSize, valueFontSize)
             DetailRow("Процентная ставка", "${rateFormatter.format(calculation.interestRate)} %", labelFontSize, valueFontSize)
+            if (graceMonths > 0) {
+                DetailRow("Срок льготного периода", formatTerm(graceMonths), labelFontSize, valueFontSize)
+                DetailRow("Льготная процентная ставка", "${rateFormatter.format(calculation.graceInterestRate)} %", labelFontSize, valueFontSize)
+            }
         }
     }
 }
@@ -210,32 +223,26 @@ fun DetailRow(label: String, value: String, labelSize: androidx.compose.ui.unit.
     ) {
         Text(
             text = "$label: ",
+            modifier = Modifier.weight(1f),
             fontSize = labelSize,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End,
             fontSize = valueSize,
             color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
-private fun calculateMonthlyPayment(
-    propertyValue: Double,
-    downPayment: Double,
-    termYears: Int,
-    interestRate: Double,
-    isAnnuity: Boolean
-): Double {
-    val loanAmount = (propertyValue - downPayment).coerceAtLeast(0.0)
-    val months = termYears * 12
-    if (loanAmount <= 0 || months <= 0) return 0.0
-    val monthlyRate = interestRate / 100 / 12
-    return if (isAnnuity) {
-        if (monthlyRate == 0.0) loanAmount / months
-        else loanAmount * (monthlyRate * (1 + monthlyRate).pow(months)) / ((1 + monthlyRate).pow(months) - 1)
-    } else {
-        (loanAmount / months) + (loanAmount * monthlyRate)
+private fun formatTerm(months: Int): String {
+    val years = months / 12
+    val remainingMonths = months % 12
+    return when {
+        years == 0 -> "$remainingMonths мес."
+        remainingMonths == 0 -> "$years ${formatYearsLabel(years)}"
+        else -> "$years ${formatYearsLabel(years)} $remainingMonths мес."
     }
 }
