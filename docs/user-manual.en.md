@@ -5,9 +5,10 @@
 The app supports Android 7.0 and newer (API 24+). Install an APK from
 [Releases](https://github.com/PavelMurlykin/mortgage_calculator/releases) and open Mortgage Calculator.
 
-To build it, open the project in Android Studio with AGP 8.13.2 support,
-Android SDK 35 (Build Tools 35.0.0) and Eclipse Temurin JDK 21. The project uses AGP 8.13.2
-from `gradle/libs.versions.toml` and Gradle 8.13 through the Gradle Wrapper;
+To build it, open the project in Android Studio with AGP 9.4.1 support,
+Android SDK 35 (Build Tools 36.0.0) and Eclipse Temurin JDK 21. The project uses AGP 9.4.1,
+Kotlin 2.2.10, KSP 2.3.6 and Room 2.7.2 from `gradle/libs.versions.toml`,
+plus Gradle 9.6.0 through the Gradle Wrapper;
 no separate Gradle installation is needed. After changing versions, run
 `Sync Project with Gradle Files` in Android Studio. The AGP version is defined by
 the `agp` key in the version catalog, with plugin aliases used in the build files.
@@ -16,9 +17,17 @@ in `gradle/gradle-daemon-jvm.properties`.
 Create a local `gradle.properties` file in the project root (it is excluded from Git):
 
 ```properties
+android.builtInKotlin=false
+android.newDsl=false
 android.useAndroidX=true
 org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
 ```
+
+The first two settings keep the current Kotlin plugin and DSL compatible with AGP 9.
+AGP warns that they are deprecated; they remain supported by the current version,
+but moving to AGP 10 will require a separate migration. Room 2.7.2 supports KSP2;
+reverting to Room 2.6.1 causes `unexpected jvm signature V` when processing DAOs.
+Updating Room does not change the database schema or require deleting saved calculations.
 
 On Windows run `./gradlew.bat assembleDebug`; on macOS/Linux run `sh ./gradlew assembleDebug`.
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.

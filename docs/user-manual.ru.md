@@ -5,9 +5,10 @@
 Приложение работает на Android 7.0 и новее (API 24+). Установите APK из
 [Releases](https://github.com/PavelMurlykin/mortgage_calculator/releases) и откройте «Ипотечный калькулятор».
 
-Для сборки откройте проект в Android Studio с поддержкой AGP 8.13.2,
-Android SDK 35 (Build Tools 35.0.0) и Eclipse Temurin JDK 21. Проект использует AGP 8.13.2
-из `gradle/libs.versions.toml` и Gradle 8.13 из Gradle Wrapper; устанавливать
+Для сборки откройте проект в Android Studio с поддержкой AGP 9.4.1,
+Android SDK 35 (Build Tools 36.0.0) и Eclipse Temurin JDK 21. Проект использует AGP 9.4.1,
+Kotlin 2.2.10, KSP 2.3.6 и Room 2.7.2 из `gradle/libs.versions.toml`,
+а также Gradle 9.6.0 из Gradle Wrapper; устанавливать
 Gradle отдельно не требуется. После изменения версий выполните в Android Studio
 `Sync Project with Gradle Files`. Версия AGP задана ключом `agp` в каталоге версий,
 а в файлах сборки плагин подключён через alias.
@@ -16,9 +17,18 @@ Gradle отдельно не требуется. После изменения �
 Создайте в корне проекта локальный файл `gradle.properties` (он исключён из Git):
 
 ```properties
+android.builtInKotlin=false
+android.newDsl=false
 android.useAndroidX=true
 org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
 ```
+
+Первые два параметра сохраняют совместимость текущих Kotlin-плагина и DSL с AGP 9.
+AGP предупреждает об их устаревании; они поддерживаются в текущей версии,
+но перед переходом на AGP 10 потребуется отдельная миграция. Room 2.7.2 совместим
+с KSP2; возврат к Room 2.6.1 приводит к ошибке `unexpected jvm signature V`
+при обработке DAO. Обновление Room не меняет схему базы и не требует удаления
+сохранённых расчётов.
 
 В Windows выполните `./gradlew.bat assembleDebug`; в macOS/Linux — `sh ./gradlew assembleDebug`.
 Отладочный APK появится в `app/build/outputs/apk/debug/app-debug.apk`.
