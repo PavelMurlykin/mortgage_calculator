@@ -59,7 +59,7 @@ class GracePeriodFlowTest {
         assertEquals(13, saved.gracePeriodMonths)
         assertTrue(saved.showGracePeriod)
         assertEquals(0.0, saved.graceInterestRate, 0.0)
-        compose.onAllNodesWithText("Ежемесячный льготный платеж: ").onFirst().assertIsDisplayed()
+        compose.onAllNodesWithText("Льготный период").onFirst().assertIsDisplayed()
         compose.runOnIdle {
             model.updateTermMonths(360)
             model.updateGracePeriodMonths(0)

@@ -158,7 +158,7 @@ class MortgageViewModel(application: Application) : AndroidViewModel(application
                 }
             }
 
-            combine(
+            combine<Any, Unit>(
                 propertyValue, downPayment, downPaymentPercent, termYears, interestRate, 
                 isAnnuity, isDownPaymentPercentLocked, manualMonthlyPayment, 
                 discountAmount, isMarkup, isDiscountPercentLocked, termMonths, isTermYearsLocked,

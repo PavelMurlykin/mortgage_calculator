@@ -6,8 +6,9 @@ The app supports Android 7.0 and newer (API 24+). Install an APK from
 [Releases](https://github.com/PavelMurlykin/mortgage_calculator/releases) and open Mortgage Calculator.
 
 To build it, open the project in Android Studio with AGP 9.4.1 support,
-Android SDK 35 (Build Tools 36.0.0) and Eclipse Temurin JDK 21. The project uses AGP 9.4.1,
-Kotlin 2.2.10, KSP 2.3.6 and Room 2.7.2 from `gradle/libs.versions.toml`,
+Android SDK 37 (Build Tools 36.0.0) and Eclipse Temurin JDK 21. The project uses AGP 9.4.1,
+built-in Kotlin 2.2.10, KSP 2.3.6 and Room 2.7.2; plugin and library versions
+are specified in `gradle/libs.versions.toml`,
 plus Gradle 9.6.0 through the Gradle Wrapper;
 no separate Gradle installation is needed. After changing versions, run
 `Sync Project with Gradle Files` in Android Studio. The AGP version is defined by
@@ -17,17 +18,21 @@ in `gradle/gradle-daemon-jvm.properties`.
 Create a local `gradle.properties` file in the project root (it is excluded from Git):
 
 ```properties
-android.builtInKotlin=false
-android.newDsl=false
 android.useAndroidX=true
 org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
 ```
 
-The first two settings keep the current Kotlin plugin and DSL compatible with AGP 9.
-AGP warns that they are deprecated; they remain supported by the current version,
-but moving to AGP 10 will require a separate migration. Room 2.7.2 supports KSP2;
+The project uses the new Android DSL (`ApplicationExtension`) and `kotlin.compilerOptions`
+with JVM target 11. Do not add the old `android.builtInKotlin=false` and
+`android.newDsl=false` settings; remove them from any existing local `gradle.properties`.
+The separate `org.jetbrains.kotlin.android` plugin is no longer applied.
+Room 2.7.2 supports KSP2;
 reverting to Room 2.6.1 causes `unexpected jvm signature V` when processing DAOs.
 Updating Room does not change the database schema or require deleting saved calculations.
+
+Compile SDK and Target SDK are set to 37 (Android 17); the minimum remains
+Android 7.0 (API 24). Release builds enable code minification and removal of unused
+resources. A shared Compose BOM applies to the app and instrumented tests.
 
 On Windows run `./gradlew.bat assembleDebug`; on macOS/Linux run `sh ./gradlew assembleDebug`.
 The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
@@ -98,12 +103,26 @@ Tap a year in the schedule to expand or collapse its months. Each month shows th
 payment and outstanding debt. Grace months are marked «Льготный» (Grace).
 The first payment is dated in the month following the current date.
 
-Tap the save icon on Calculation. In List («Список»), each saved calculation shows
-its main parameters and, when an enabled grace period has a positive term, its grace
-payment, term and rate. Terms are saved to the nearest entered month. Existing saved
-calculations continue to work without a grace period. Tap the title to rename it,
-the pencil to load its parameters into Calculation, or the trash icon to delete it.
-Loading also restores the additional parameter switches.
+Tap the save icon on Calculation. In List («Список»), each calculation has a card
+showing the property value after any discount/markup, down payment, payment, term
+and rate. With grace enabled and a positive grace term, payment details appear in
+Grace period («Льготный период») and Main period («Основной период») columns.
+The main column shows the full mortgage term, matching Calculation.
+A zero grace term or a disabled switch uses the ordinary card.
+Terms retain the exact number of entered months; existing saved calculations remain available.
+
+Badges at the bottom show the down payment as a percentage of the final property value,
+the payment type, and No markup («Без удорожания»), With markup («С удорожанием … %»),
+or With discount («Со скидкой … %»). The discount/markup percentage uses the original
+property value. Below the title is the date of the last save or rename.
+Tap the title to rename it, the pencil to load its parameters into Calculation,
+or the trash icon to delete it. Loading also restores the additional parameter switches.
+
+Share calculation («Поделиться расчетом») opens the system sharing menu with a ready
+PNG of the entire card. The image contains the title and all parameters, including
+grace details, without action buttons or bottom navigation. It includes the full card
+even when it exceeds the screen height, and uses a light appearance for sharing.
+Choose an app and recipient in the system menu. Storage permission is not required.
 
 Settings → Modifiers («Настройки» → «Модификаторы») changes the amount increment
 (default 100,000 ₽), payment increment (10,000 ₽), and down payment/rate increment
